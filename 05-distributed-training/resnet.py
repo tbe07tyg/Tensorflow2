@@ -277,5 +277,5 @@ def resnet(num_blocks, img_input=None, classes=10, training=None):
 
 resnet20 = functools.partial(resnet, num_blocks=3)
 resnet32 = functools.partial(resnet, num_blocks=5)
- resnet56 = functools.partial(resnet, num_blocks=9)
+resnet56 = functools.partial(resnet, num_blocks=9)
 resnet110 = functools.partial(resnet, num_blocks=110)

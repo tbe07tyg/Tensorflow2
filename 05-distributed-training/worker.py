@@ -1,10 +1,20 @@
-import datetime
-
+from __future__ import absolute_import, division, print_function, unicode_literals
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.callbacks import TensorBoard, LearningRateScheduler
+import os
+import json
 
+from tensorflow import keras
 import resnet
+
+"""
+Remember to set the TF_CONFIG envrionment variable.
+
+For example:
+
+export TF_CONFIG='{"cluster": {"worker": ["10.1.10.58:12345", "10.1.10.250:12345"]}, "task": {"index": 0, "type": "worker"}}'
+"""
+
+strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
 
 
 NUM_GPUS = 2
@@ -60,41 +70,12 @@ input_shape = (HEIGHT, WIDTH, NUM_CHANNELS)
 img_input = tf.keras.layers.Input(shape=input_shape)
 opt = keras.optimizers.SGD(learning_rate=0.1, momentum=0.9)
 
-if NUM_GPUS == 1:
-    model = resnet.resnet56(img_input=img_input, classes=NUM_CLASSES)
-    model.compile(
 
-              optimizer=opt,
-              loss='sparse_categorical_crossentropy',
-              metrics=['sparse_categorical_accuracy'])
-else:
-    mirrored_strategy = tf.distribute.MirroredStrategy()
-    with mirrored_strategy.scope():
-      model = resnet.resnet56(img_input=img_input, classes=NUM_CLASSES)
-      model.compile(
-                optimizer=opt,
-                loss='sparse_categorical_crossentropy',
-                metrics=['sparse_categorical_accuracy'])  
-
-log_dir="logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-file_writer = tf.summary.create_file_writer(log_dir + "/metrics")
-file_writer.set_as_default()
-tensorboard_callback = TensorBoard(
-  log_dir=log_dir,
-  update_freq='batch',
-  histogram_freq=1)
-
-lr_schedule_callback = LearningRateScheduler(schedule)
-
+with strategy.scope():
+  model = resnet.resnet56(img_input=img_input, classes=NUM_CLASSES)
+  model.compile(
+            optimizer=opt,
+            loss='sparse_categorical_crossentropy',
+            metrics=['sparse_categorical_accuracy']) 
 model.fit(train_dataset,
-          epochs=NUM_EPOCHS,
-          validation_data=test_dataset,
-          validation_freq=1,
-          callbacks=[tensorboard_callback, lr_schedule_callback])
-model.evaluate(test_dataset)
-
-model.save('model.h5')
-
-new_model = keras.models.load_model('model.h5')
- 
-new_model.evaluate(test_dataset)
+          epochs=NUM_EPOCHS)
