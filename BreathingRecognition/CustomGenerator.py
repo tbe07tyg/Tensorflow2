@@ -53,12 +53,12 @@ class mySeqFeatureRegGenerator(Sequence):
         batch_data  = self.frame_generator(idx)
         return batch_data
 
-    # def on_epoch_end(self):
-    #     # after each epoch we neeed to renew the global entire self.indexes , not local index in getitem func. and shuffle
-    #     # the global self.indexes so that we can each epoch to shuffle our entire dataset.
-    #     self.indexes = np.arange(len(self.used_data))
-    #     if self.shuffle == True:
-    #         np.random.shuffle(self.indexes)
+    def on_epoch_end(self):
+        # after each epoch we neeed to renew the global entire self.indexes , not local index in getitem func. and shuffle
+        # the global self.indexes so that we can each epoch to shuffle our entire dataset.
+        self.indexes = np.arange(len(self.used_data))
+        if self.shuffle == True:
+            np.random.shuffle(self.indexes)
 
 
 
@@ -170,12 +170,14 @@ class mySeqFeatureRegGenerator(Sequence):
         """
 
         # fetch the batch of data by indexes
-        batch = self.used_data[idx * self.batch_size:(idx + 1) * self.batch_size]
+        indexes = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
+
+        # Find the batch list of records
+        batch_list = [self.used_data[k] for k in indexes]
         # print(len(batch))
         X, y = [], []
         count = 0
-        for _ in batch:
-            sample = random.choice(self.used_data)
+        for sample in batch_list:
             # print(count)
             if self.data_type is "images":
                 # Get and resample frames.
