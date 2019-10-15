@@ -24,3 +24,20 @@ class LstmReg(keras.Model):
             x = self.dropout(x, training=training)
         x = self.dense1(x)
         return x
+
+class Lstm(keras.Model):
+    def __init__(self, num_class):
+        super(Lstm, self).__init__()
+        self.lstm = tf.keras.layers.LSTM(2048, return_sequences=False, dropout=0.5)
+        self.dense512 = tf.keras.layers.Dense(512, activation=tf.nn.relu)
+        self.dropout = tf.keras.layers.Dropout(0.5)
+        self.dense1 = tf.keras.layers.Dense(num_class, activation=tf.nn.softmax)
+
+
+    def call(self, inputs, training=True):
+        x = self.lstm(inputs, training=training)
+        x = self.dense512(x)
+        if training:
+            x = self.dropout(x, training=training)
+        x = self.dense1(x)
+        return x

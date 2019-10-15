@@ -16,7 +16,7 @@ class mySeqFeatureRegGenerator(Sequence):
         self.train_test= train_test
         self.batch_size = batch_size
         self.data_type = data_type
-        self.task_tpye = task_type
+        self.task_type = task_type
         self.shuffle = shuffle
         # parameters
         self.seq_length = seq_length
@@ -42,23 +42,23 @@ class mySeqFeatureRegGenerator(Sequence):
         train, test = self.split_train_test()
         self.used_data = train if self.train_test == 'train' else test
         print("Loading %d samples into memory for %sing." % (len(self.used_data), train_test))
-
+        self.indexes = np.arange(len(self.used_data))
 
 
     def __len__(self):
         return math.ceil(len(self.used_data) / self.batch_size)
 
     def __getitem__(self, idx):
-        indexes = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
+        # indexes = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_data  = self.frame_generator(idx)
+        return batch_data
 
-        return self.frame_generator(indexes)
-
-    def on_epoch_end(self):
-        # after each epoch we neeed to renew the global entire self.indexes , not local index in getitem func. and shuffle
-        # the global self.indexes so that we can each epoch to shuffle our entire dataset.
-        self.indexes = np.arange(len(self.used_data))
-        if self.shuffle == True:
-            np.random.shuffle(self.indexes)
+    # def on_epoch_end(self):
+    #     # after each epoch we neeed to renew the global entire self.indexes , not local index in getitem func. and shuffle
+    #     # the global self.indexes so that we can each epoch to shuffle our entire dataset.
+    #     self.indexes = np.arange(len(self.used_data))
+    #     if self.shuffle == True:
+    #         np.random.shuffle(self.indexes)
 
 
 
@@ -162,7 +162,7 @@ class mySeqFeatureRegGenerator(Sequence):
 
 
 
-    def frame_generator(self, ids):
+    def frame_generator(self, idx):
         """Return a generator that we can use to train on. There are
         a couple different things we can return:
 
@@ -170,9 +170,13 @@ class mySeqFeatureRegGenerator(Sequence):
         """
 
         # fetch the batch of data by indexes
-        batch_x = self.used_data[ids]
+        batch = self.used_data[idx * self.batch_size:(idx + 1) * self.batch_size]
+        # print(len(batch))
         X, y = [], []
-        for sample in batch_x:
+        count = 0
+        for _ in batch:
+            sample = random.choice(self.used_data)
+            # print(count)
             if self.data_type is "images":
                 # Get and resample frames.
                 frames = self.get_frames_for_sample(sample)
@@ -183,16 +187,25 @@ class mySeqFeatureRegGenerator(Sequence):
             else:
                 # Get the sequence from disk.
                 sequence = self.get_extracted_sequence(self.data_type, sample)
-                print(sequence)
+                # print(sequence.shape)
                 if sequence is None:
                     raise ValueError("Can't find sequence. Did you generate them?")
 
             X.append(sequence)
+            # print("X length:", len(X))
             if self.task_type == "classification":
-                y.append(self.get_class_one_hot([1]))
-
+                y.append(self.get_class_one_hot(sample[1]))
+                # print(y)
             elif self.task_type == "regression":
+                # print("here")
+                # print(sample[1])
                 y.append(float(self.get_target_value_regression(sample[1])))
+                # print(y)
+            else:
+                pass
+            # print("X:", len(X))
+            # count += 1
+        # print(np.array(X).shape)
         return np.array(X), np.array(y)
 
     # def build_image_sequence(self, frames):
