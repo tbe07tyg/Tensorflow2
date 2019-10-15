@@ -10,6 +10,7 @@ from UiltiFuncs import schedule, get_compilied_model
 from ModelZoo import LstmReg, Lstm
 from CustomGenerator import mySeqFeatureRegGenerator
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 def train(data_type, seq_length, model_tpye, saved_model=None,
           class_limit=None, image_shape=None,
@@ -26,8 +27,8 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
         verbose=1,
         save_best_only=True)
 
-    # Learning Rate Schedule callback
-    lr_schedule_callback = LearningRateScheduler(schedule)
+    # # Learning Rate Schedule callback
+    # lr_schedule_callback = LearningRateScheduler(schedule)
 
     # EarlyStop_callback
     ES_callback = EarlyStopping(patience=10)
@@ -83,8 +84,10 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
 
 
     # define optimizers
-    optimizer = Adam(lr=1e-5, decay=1e-6)
-
+    optimizer = Adam(lr=1e-8)  # for learning rate schedular
+    lr_schedule = tf.keras.callbacks.LearningRateScheduler(
+        lambda epoch: 1e-8 * 10 ** (epoch / 20))
+    # optimizer = Adam(lr=1e-8, decay=1e-6)
     print("loss:", loss)
     print("metrics:", metrics)
     print("optimizer:", optimizer)
@@ -92,10 +95,10 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
     if NUM_GPUS == 1:
         model = get_compilied_model(model, loss=loss, opt=optimizer, metrics=metrics)
         # fit the custom generator
-        model.fit_generator(generator=train_Generator,
+        history =model.fit_generator(generator=train_Generator,
                             validation_data=test_Generator,
                             use_multiprocessing=True,
-                            callbacks=[lr_schedule_callback, checkpoint_callback, ES_callback, tb_callback],
+                            callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback],
                             workers=4,
                             epochs=nb_epoch,
                             shuffle=True)
@@ -114,10 +117,10 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
             model= get_compilied_model(model, loss=loss, opt=optimizer, metrics=metrics)
 
             # fit the custom generator
-            model.fit_generator(generator=train_Generator,
+            history = model.fit_generator(generator=train_Generator,
                                 validation_data=test_Generator,
                                 use_multiprocessing=True,
-                                callbacks=[lr_schedule_callback, checkpoint_callback, ES_callback, tb_callback],
+                                callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback],
                                 workers=4,
                                 epochs=nb_epoch,
                                 shuffle=True)
@@ -130,7 +133,9 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
             #                        validation_freq=1,
             #                        initial_epoch=INIT_EPOCH_2)
 
-
+    plt.semilogx(history.history["lr"], history.history["loss"])
+    plt.axis([1e-8, 1e-4, 0, 30])
+    plt.savefig('lr.png') #
 def main():
     """These are the main training settings. Set each before running
     this file."""
