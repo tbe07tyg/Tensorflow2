@@ -100,7 +100,7 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
                             use_multiprocessing=True,
                             callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback],
                             workers=4,
-                            epochs=nb_epoch,
+                            epochs=20,
                             shuffle=True)
 
         # # resume training from the checkpoint
