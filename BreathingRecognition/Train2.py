@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 def train(data_type, seq_length, model_tpye, saved_model=None,
           class_limit=None, image_shape=None,
-          load_to_memory=False, batch_size=32, nb_epoch=100, NUM_GPUS=1):
+          load_to_memory=False, batch_size=32, nb_epoch=100, NUM_GPUS=1, lr_plan =False):
 
 
     # Helper: Save the model.
@@ -26,9 +26,6 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
             '.{epoch:03d}-{val_loss:.3f}.hdf5'),
         verbose=1,
         save_best_only=True)
-
-    # # Learning Rate Schedule callback
-    # lr_schedule_callback = LearningRateScheduler(schedule)
 
     # EarlyStop_callback
     ES_callback = EarlyStopping(patience=10)
@@ -84,10 +81,15 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
 
 
     # define optimizers
-    optimizer = Adam(lr=1e-8)  # for learning rate schedular
-    lr_schedule = tf.keras.callbacks.LearningRateScheduler(
-        lambda epoch: 1e-8 * 10 ** (epoch / 20))
-    # optimizer = Adam(lr=1e-8, decay=1e-6)
+    if lr_plan ==True:
+        nb_epoch=100
+        optimizer = Adam(lr=1e-8)  # for learning rate schedular
+        lr_schedule = tf.keras.callbacks.LearningRateScheduler(
+            lambda epoch: 1e-8 * 10 ** (epoch / 20))
+    else:
+        optimizer = Adam(lr=5e-5, decay=0.3e-5)
+        lr_schedule = tf.keras.callbacks.LearningRateScheduler(
+            lambda epoch: 1e-8 * 10 ** (epoch / nb_epoch))
     print("loss:", loss)
     print("metrics:", metrics)
     print("optimizer:", optimizer)
@@ -100,7 +102,7 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
                             use_multiprocessing=True,
                             callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback],
                             workers=4,
-                            epochs=20,
+                            epochs=nb_epoch,
                             shuffle=True)
 
         # # resume training from the checkpoint
@@ -133,9 +135,10 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
             #                        validation_freq=1,
             #                        initial_epoch=INIT_EPOCH_2)
 
-    plt.semilogx(history.history["lr"], history.history["loss"])
-    plt.axis([1e-8, 1e-4, 0, 30])
-    plt.savefig('lr.png') #
+    if lr_plan ==True:
+        plt.semilogx(history.history["lr"], history.history["loss"])
+        plt.axis([1e-8, 1e-4, 0, 30])
+        plt.savefig('lr.png') #
 def main():
     """These are the main training settings. Set each before running
     this file."""
