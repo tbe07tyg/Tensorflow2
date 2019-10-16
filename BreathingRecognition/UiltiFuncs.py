@@ -2,6 +2,8 @@ import tensorflow as tf
 from tensorflow import keras
 import os
 import csv
+import re
+import glob
 
 def schedule(epoch):
     BASE_LEARNING_RATE = 0.1
@@ -23,6 +25,41 @@ def get_compilied_model(model, opt, loss, metrics):
                   loss=loss,
                   metrics=metrics)
     return model
+
+def compare(x, y):
+    stat_x = os.stat(x)
+    stat_y = os.stat(y)
+    if stat_x.st_ctime < stat_y.st_ctime:
+        return -1
+    elif stat_x.st_ctime > stat_y.st_ctime:
+        return 1
+    else:
+        return 0
+
+class Clean_CheckpointsCaches(keras.callbacks.Callback):
+    """
+    this callback will delete all the saved checkpoints except the last 5 savings
+    """
+    def __init__(self, model_type, feature_type, folder_path):
+        self.type = model_type+ "-" +feature_type
+        self.folder_path =  folder_path
+
+    def on_epoch_end(self, epoch, logs=None):
+        # select =  [f for f in os.listdir(self.folder_path) if self.type in f]
+        files = list(filter(os.path.isfile, glob.glob(self.folder_path + "/*")))
+        # print(files)
+        files.sort(key=lambda x: os.path.getmtime(x))
+        # print(files)
+        if len(files)>5:
+            del_items =  files[5:]
+            # print(del_items)
+            for file in del_items:
+                os.remove(file)
+        # print("after delete:", os.listdir(self.folder_path))
+
+
+
+
 
 
 

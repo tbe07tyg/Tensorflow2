@@ -6,7 +6,7 @@ from tensorflow import keras
 from tensorflow.keras.callbacks import TensorBoard, LearningRateScheduler, ModelCheckpoint, EarlyStopping
 from tensorflow.keras.optimizers import Adam
 
-from UiltiFuncs import schedule, get_compilied_model
+from UiltiFuncs import schedule, get_compilied_model, Clean_CheckpointsCaches
 from ModelZoo import LstmReg, Lstm
 from CustomGenerator import mySeqFeatureRegGenerator
 import tensorflow as tf
@@ -23,9 +23,13 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
         os.makedirs(modelSavedPath)
     checkpoint_callback = ModelCheckpoint(
         filepath=os.path.join(modelSavedPath, model_tpye + '-' + data_type + \
-            '.{epoch:03d}-{val_loss:.3f}.hdf5'),
+            '.{epoch:03d}-{val_accuracy:.3f}.hdf5'),
         verbose=1,
+        monitor="val_accuracy",
         save_best_only=True)
+
+    # clean saved check points caches
+    ck_cleaner = Clean_CheckpointsCaches(model_type=model_tpye, folder_path=modelSavedPath,feature_type=data_type)
 
     # EarlyStop_callback
     ES_callback = EarlyStopping(patience=10)
@@ -46,7 +50,7 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
     #                                           sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
     #                                           )
 
-    # FOR DESKTOP
+    # # FOR DESKTOP
     train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
                                                task_type="classification", seq_length=seq_length,
                                                class_limit=class_limit,
@@ -100,7 +104,7 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
         history =model.fit_generator(generator=train_Generator,
                             validation_data=test_Generator,
                             use_multiprocessing=True,
-                            callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback],
+                            callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback, ck_cleaner],
                             workers=4,
                             epochs=nb_epoch,
                             shuffle=True)
@@ -122,7 +126,7 @@ def train(data_type, seq_length, model_tpye, saved_model=None,
             history = model.fit_generator(generator=train_Generator,
                                 validation_data=test_Generator,
                                 use_multiprocessing=True,
-                                callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback],
+                                callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback, ck_cleaner],
                                 workers=4,
                                 epochs=nb_epoch,
                                 shuffle=True)
