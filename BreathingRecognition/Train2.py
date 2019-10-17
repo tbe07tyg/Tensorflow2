@@ -87,10 +87,10 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
     else:
         pass
 
-    tf.summary.trace_export(
-        name="my_trace",
-        step=0,
-        profiler_outdir=log_path)
+    # tf.summary.trace_export(
+    #     name="my_trace",
+    #     step=0,
+    #     profiler_outdir=log_path)
     # define optimizers
     if lr_plan ==True:
         nb_epoch=100
