@@ -1,7 +1,7 @@
 
 
 
-lr = 5e-5
+lr = 1e-4
 decay = 0.3e-5
 for i in range(1000):
     step =  i+1

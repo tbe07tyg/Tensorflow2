@@ -10,8 +10,9 @@ import random
 
 
 class LstmReg(keras.Model):
-    def __init__(self):
+    def __init__(self, input_shape):
         super(LstmReg, self).__init__()
+        self.s = input_shape
         self.lstm = tf.keras.layers.LSTM(2048, return_sequences=False, dropout=0.5)
         self.dense512 = tf.keras.layers.Dense(512, activation=tf.nn.relu)
         self.dropout = tf.keras.layers.Dropout(0.5)
@@ -25,9 +26,18 @@ class LstmReg(keras.Model):
         x = self.dense1(x)
         return x
 
+    def model(self):
+        """
+        this is a expicitly method to use subclass model
+        """
+        i = self.keras.Input(self.s)
+        return keras.Model(inputs=[i], outputs=self.call(i))
+
+
 class Lstm(keras.Model):
-    def __init__(self, num_class):
+    def __init__(self, num_class,input_shape):
         super(Lstm, self).__init__()
+        self.s = input_shape
         self.lstm = tf.keras.layers.LSTM(2048, return_sequences=False, dropout=0.5)
         self.dense512 = tf.keras.layers.Dense(512, activation=tf.nn.relu)
         self.dropout = tf.keras.layers.Dropout(0.5)
@@ -35,9 +45,17 @@ class Lstm(keras.Model):
 
 
     def call(self, inputs, training=True):
+        # print("input shape:", inputs.shape)
         x = self.lstm(inputs, training=training)
         x = self.dense512(x)
         if training:
             x = self.dropout(x, training=training)
         x = self.dense1(x)
         return x
+
+    def model(self):
+        """
+        this is a expicitly method to use subclass model
+        """
+        i = keras.Input(self.s)
+        return keras.Model(inputs=[i], outputs=self.call(i))
