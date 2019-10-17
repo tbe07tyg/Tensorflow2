@@ -37,36 +37,36 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
     tb_callback = TensorBoard(log_dir=log_path, update_freq='batch',
                               histogram_freq=1, profile_batch=3)
 
-    writer = tf.summary.create_file_writer(log_path)
-    tf.summary.trace_on(graph=True, profiler=True)
+    # writer = tf.summary.create_file_writer(log_path)
+    # tf.summary.trace_on(graph=True, profiler=True)
 
 
-    # custom data generator
-    train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
-                                               task_type="classification", seq_length=seq_length, class_limit=class_limit,
-                                               csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
-                                               sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-                                               )
-
-    test_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="test", data_type=data_type,
-                                               task_type="classification", seq_length=seq_length,
-                                              csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
-                                              sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-                                              )
-
-    # # FOR DESKTOP
+    # # custom data generator
     # train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
-    #                                            task_type="classification", seq_length=seq_length,
-    #                                            class_limit=class_limit,
-    #                                            csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
-    #                                            sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+    #                                            task_type="classification", seq_length=seq_length, class_limit=class_limit,
+    #                                            csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
+    #                                            sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
     #                                            )
     #
     # test_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="test", data_type=data_type,
-    #                                           task_type="classification", seq_length=seq_length,
-    #                                           csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
-    #                                           sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+    #                                            task_type="classification", seq_length=seq_length,
+    #                                           csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
+    #                                           sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
     #                                           )
+
+    # FOR DESKTOP
+    train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
+                                               task_type="classification", seq_length=seq_length,
+                                               class_limit=class_limit,
+                                               csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
+                                               sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+                                               )
+
+    test_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="test", data_type=data_type,
+                                              task_type="classification", seq_length=seq_length,
+                                              csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
+                                              sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+                                              )
 
     # select model
     model = None
