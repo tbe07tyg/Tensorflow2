@@ -34,8 +34,7 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
     # EarlyStop_callback
     ES_callback = EarlyStopping(patience=10)
     # Tensorboard_callback
-    tb_callback = TensorBoard(log_dir=log_path, update_freq='batch',
-                              histogram_freq=1, profile_batch=3)
+    tb_callback = TensorBoard(log_dir=log_path, update_freq = 'epoch', profile_batch=0)
 
     # writer = tf.summary.create_file_writer(log_path)
     # tf.summary.trace_on(graph=True, profiler=True)
@@ -97,10 +96,11 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
         optimizer = Adam(lr=1e-8)  # for learning rate schedular
         lr_schedule = tf.keras.callbacks.LearningRateScheduler(
             lambda epoch: 1e-8 * 10 ** (epoch / 20))
+        calls = [lr_schedule, checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
     else:
         optimizer = Adam(lr=lr, decay=0.3e-5)
-        lr_schedule = tf.keras.callbacks.LearningRateScheduler(
-            lambda epoch: 1e-8 * 10 ** (epoch / nb_epoch))
+        calls = [checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
+
     print("loss:", loss)
     print("metrics:", metrics)
     print("optimizer:", optimizer)
@@ -113,7 +113,7 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
         history =model.fit_generator(generator=train_Generator,
                             validation_data=test_Generator,
                             use_multiprocessing=True,
-                            callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback, ck_cleaner],
+                            callbacks=calls,
                             workers=4,
                             epochs=nb_epoch,
                             shuffle=True)
@@ -135,7 +135,7 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
             history = model.fit_generator(generator=train_Generator,
                                 validation_data=test_Generator,
                                 use_multiprocessing=True,
-                                callbacks=[lr_schedule, checkpoint_callback, ES_callback, tb_callback, ck_cleaner],
+                                callbacks=calls,
                                 workers=4,
                                 epochs=nb_epoch,
                                 shuffle=True)
