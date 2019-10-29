@@ -19,7 +19,7 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
 
     # Helper: Save the model.
     modelSavedPath = './checkpoints'
-    modelSavedPath = os.path.join(modelSavedPath, train_name)
+    modelSavedPath = os.path.join(modelSavedPath, train_name, lr)
     if not os.path.exists(modelSavedPath):
         os.makedirs(modelSavedPath)
     checkpoint_callback = ModelCheckpoint(
@@ -35,7 +35,7 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
     # EarlyStop_callback
     ES_callback = EarlyStopping(patience=30)
     # Tensorboard_callback
-    log_path = os.path.join(log_path, train_name)
+    log_path = os.path.join(log_path, train_name, lr)
     tb_callback = TensorBoard(log_dir=log_path, update_freq = 'epoch', profile_batch=0)
 
     # writer = tf.summary.create_file_writer(log_path)
@@ -100,7 +100,8 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
             lambda epoch: 1e-8 * 10 ** (epoch / 20))
         calls = [lr_schedule, ES_callback, tb_callback]
     else:
-        optimizer = Adam(lr=lr, decay=0.3e-5)
+        optimizer = Adam(lr=lr)
+        tf.summary.scalar('learning rate', data=optimizer)
         calls = [checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
 
     print("loss:", loss)
@@ -159,6 +160,7 @@ def main():
     # model can be one of lstm, lrcn, mlp, conv_3d, c3d
     model = 'lstm'
     train_name = "noEarlyStop"
+
     saved_model = None  # None or weights file
     class_limit = None  # int, can be 1-101 or None
     seq_length = 40
@@ -166,7 +168,7 @@ def main():
     batch_size = 32
     nb_epoch = 1000
     feature_length =2048
-    lr = 1e-4
+    lr = 1e-6
     tb_log_path = os.path.join(os.getcwd(), 'logs',train_name, model)
 
     # Chose images or features and image shape based on network.

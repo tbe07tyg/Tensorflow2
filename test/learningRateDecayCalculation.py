@@ -1,8 +1,8 @@
 
 
 
-lr = 1e-4
-decay = 0.3e-5
+lr = 1e-6
+decay = 0.1
 for i in range(1000):
     step =  i+1
     lr = lr *( 1. / (1. + decay * step))
