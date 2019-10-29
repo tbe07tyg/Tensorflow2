@@ -19,11 +19,11 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
 
     # Helper: Save the model.
     modelSavedPath = './checkpoints'
-
+    modelSavedPath = os.path.join(modelSavedPath, train_name)
     if not os.path.exists(modelSavedPath):
         os.makedirs(modelSavedPath)
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.path.join(modelSavedPath, train_name, model_tpye +  "-" + str(lr)+'-' + data_type + \
+        filepath=os.path.join(modelSavedPath, model_tpye +  "-" + str(lr)+'-' + data_type + \
             '.{epoch:03d}-{val_accuracy:.3f}.hdf5'),
         verbose=1,
         monitor="val_accuracy",
@@ -158,6 +158,7 @@ def main():
     this file."""
     # model can be one of lstm, lrcn, mlp, conv_3d, c3d
     model = 'lstm'
+    train_name = "noEarlyStop"
     saved_model = None  # None or weights file
     class_limit = None  # int, can be 1-101 or None
     seq_length = 40
@@ -166,7 +167,7 @@ def main():
     nb_epoch = 1000
     feature_length =2048
     lr = 1e-4
-    tb_log_path = os.path.join(os.getcwd(), 'logs', model)
+    tb_log_path = os.path.join(os.getcwd(), 'logs',train_name, model)
 
     # Chose images or features and image shape based on network.
     if model in ['conv_3d', 'c3d', 'lrcn']:
@@ -178,7 +179,7 @@ def main():
     else:
         raise ValueError("Invalid model. See train.py for options.")
 
-    train(data_type, seq_length, model, saved_model=saved_model, train_name="noEarlyStop",
+    train(data_type, seq_length, model, saved_model=saved_model, train_name=train_name,
       class_limit=class_limit, image_shape=image_shape,
       load_to_memory=load_to_memory, batch_size=batch_size, nb_epoch=nb_epoch, lr=lr, log_path=tb_log_path)
 
