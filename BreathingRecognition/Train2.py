@@ -101,7 +101,7 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
         calls = [lr_schedule, ES_callback, tb_callback]
     else:
         optimizer = Adam(lr=lr)
-        tf.summary.scalar('learning rate', data=optimizer)
+
         calls = [checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
 
     print("loss:", loss)
