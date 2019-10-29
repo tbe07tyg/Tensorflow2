@@ -12,17 +12,18 @@ from CustomGenerator import mySeqFeatureRegGenerator
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
+def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=None,
           class_limit=None, image_shape=None,
           load_to_memory=False, batch_size=32, nb_epoch=100, NUM_GPUS=1, lr_plan =False, lr=1e-4):
 
 
     # Helper: Save the model.
     modelSavedPath = './checkpoints'
+
     if not os.path.exists(modelSavedPath):
         os.makedirs(modelSavedPath)
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.path.join(modelSavedPath, model_tpye +  "-" + str(lr)+'-' + data_type + \
+        filepath=os.path.join(modelSavedPath, train_name, model_tpye +  "-" + str(lr)+'-' + data_type + \
             '.{epoch:03d}-{val_accuracy:.3f}.hdf5'),
         verbose=1,
         monitor="val_accuracy",
@@ -32,8 +33,9 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
     ck_cleaner = Clean_CheckpointsCaches(model_type=model_tpye, folder_path=modelSavedPath,feature_type=data_type)
 
     # EarlyStop_callback
-    ES_callback = EarlyStopping(patience=10)
+    ES_callback = EarlyStopping(patience=30)
     # Tensorboard_callback
+    log_path = os.path.join(log_path, train_name)
     tb_callback = TensorBoard(log_dir=log_path, update_freq = 'epoch', profile_batch=0)
 
     # writer = tf.summary.create_file_writer(log_path)
@@ -96,7 +98,7 @@ def train(data_type, seq_length, model_tpye,  log_path, saved_model=None,
         optimizer = Adam(lr=1e-8)  # for learning rate schedular
         lr_schedule = tf.keras.callbacks.LearningRateScheduler(
             lambda epoch: 1e-8 * 10 ** (epoch / 20))
-        calls = [lr_schedule, checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
+        calls = [lr_schedule, ES_callback, tb_callback]
     else:
         optimizer = Adam(lr=lr, decay=0.3e-5)
         calls = [checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
@@ -176,7 +178,7 @@ def main():
     else:
         raise ValueError("Invalid model. See train.py for options.")
 
-    train(data_type, seq_length, model, saved_model=saved_model,
+    train(data_type, seq_length, model, saved_model=saved_model, train_name="noEarlyStop",
       class_limit=class_limit, image_shape=image_shape,
       load_to_memory=load_to_memory, batch_size=batch_size, nb_epoch=nb_epoch, lr=lr, log_path=tb_log_path)
 
