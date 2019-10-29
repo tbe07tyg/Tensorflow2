@@ -174,7 +174,7 @@ def main():
     nb_epoch = 1000
     feature_length =2048
     lr = 2e-6
-    tb_log_path = os.path.join(os.getcwd(), 'logs',train_name, model)
+    tb_log_path = os.path.join(os.getcwd(), 'logs',train_name, model, str(lr))
 
     # Chose images or features and image shape based on network.
     if model in ['conv_3d', 'c3d', 'lrcn']:
