@@ -2,8 +2,8 @@
 
 
 lr = 1e-6
-decay = 0.1
-for i in range(1000):
+decay = 0.9
+for i in range(100):
     step =  i+1
     lr = lr *( 1. / (1. + decay * step))
     if lr < 3e-5:

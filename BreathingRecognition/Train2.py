@@ -19,7 +19,7 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
 
     # Helper: Save the model.
     modelSavedPath = './checkpoints'
-    modelSavedPath = os.path.join(modelSavedPath, train_name, lr)
+    modelSavedPath = os.path.join(modelSavedPath, train_name, str(lr))
     if not os.path.exists(modelSavedPath):
         os.makedirs(modelSavedPath)
     checkpoint_callback = ModelCheckpoint(
@@ -35,7 +35,7 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
     # EarlyStop_callback
     ES_callback = EarlyStopping(patience=30)
     # Tensorboard_callback
-    log_path = os.path.join(log_path, train_name, lr)
+    log_path = os.path.join(log_path, train_name, str(lr))
     tb_callback = TensorBoard(log_dir=log_path, update_freq = 'epoch', profile_batch=0)
 
     # writer = tf.summary.create_file_writer(log_path)
@@ -153,7 +153,12 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
     if lr_plan ==True:
         plt.semilogx(history.history["lr"], history.history["loss"])
         plt.axis([1e-8, 1e-4, 0, 30])
-        plt.savefig('lr.png') #
+        plt.savefig('schedule_lr.png') #
+
+    else:
+        plt.semilogx(history.history["lr"], history.history["loss"])
+        plt.axis([1e-8, 1e-5, 0, 30])
+        plt.savefig('training_lr.png')  #
 def main():
     """These are the main training settings. Set each before running
     this file."""
