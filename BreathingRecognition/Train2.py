@@ -173,7 +173,7 @@ def main():
     batch_size = 32
     nb_epoch = 1000
     feature_length =2048
-    lr = 1e-6
+    lr = 2e-6
     tb_log_path = os.path.join(os.getcwd(), 'logs',train_name, model)
 
     # Chose images or features and image shape based on network.
