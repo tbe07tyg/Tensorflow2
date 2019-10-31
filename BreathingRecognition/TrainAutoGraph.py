@@ -203,9 +203,8 @@ if __name__ == '__main__':
 
     # train loop:
     EPOCHS = 5
-    total_num_Batchs= math.ceil(len(train_dataset)/batch_size)
+    total_num_Batchs= math.ceil(len(train_list)/batch_size)
     for epoch in range(EPOCHS):
-
         for (batch, each_batch) in enumerate(train_dataset):
             # print(each_batch)
             # load input batch features
