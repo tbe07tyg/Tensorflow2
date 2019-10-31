@@ -213,9 +213,10 @@ if __name__ == '__main__':
             # print("x.shape:", train_batch_x.shape)
             # print("y.shape:", batch_y.shape)
             train_step(train_batch_x, train_batch_y)
-            batch_template = 'Batch {}/{}, Loss: {}, Accuracy: {}'
+            batch_template = 'Epoch {} - Batch[{}/{}], Loss: {}, Accuracy: {}'
 
-            print(batch_template.format(batch + 1,
+            print(batch_template.format(epoch + 1,
+                                        batch + 1,
                                         total_num_Batchs,
                                         train_loss.result(),
                                         train_accuracy.result() * 100))
@@ -225,7 +226,7 @@ if __name__ == '__main__':
             test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch, seq_length=seq_length, sequence_path=sequence_path,
                                          data_type=data_type, task_type=task_type, class_names=class_names)
 
-            train_step(test_batch_x, test_batch_y)
+            test_step(test_batch_x, test_batch_y)
 
 
         template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
