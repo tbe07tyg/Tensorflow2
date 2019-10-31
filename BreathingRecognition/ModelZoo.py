@@ -31,6 +31,7 @@ class LstmReg(keras.Model):
         this is a expicitly method to use subclass model
         """
         i = self.keras.Input(self.s)
+
         return keras.Model(inputs=[i], outputs=self.call(i))
 
 
@@ -46,6 +47,7 @@ class Lstm(keras.Model):
 
     def call(self, inputs, training=True):
         # print("input shape:", inputs.shape)
+
         x = self.lstm(inputs, training=training)
         x = self.dense512(x)
         if training:
@@ -57,5 +59,10 @@ class Lstm(keras.Model):
         """
         this is a expicitly method to use subclass model
         """
+
+        # write summaries
+
         i = keras.Input(self.s)
+
+
         return keras.Model(inputs=[i], outputs=self.call(i))

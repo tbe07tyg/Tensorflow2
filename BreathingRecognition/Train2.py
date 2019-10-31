@@ -17,6 +17,10 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
           load_to_memory=False, batch_size=32, nb_epoch=100, NUM_GPUS=1, lr_plan =False, lr=1e-4):
 
 
+    # create file_writer for tensorboard
+    file_writer =  tf.summary.create_file_writer(logdir=log_path)
+
+
     # Helper: Save the model.
     modelSavedPath = './checkpoints'
     modelSavedPath = os.path.join(modelSavedPath, train_name, str(lr))
@@ -35,107 +39,95 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
     # EarlyStop_callback
     ES_callback = EarlyStopping(patience=30)
     # Tensorboard_callback
-    log_path = os.path.join(log_path, train_name, str(lr))
+    # log_path = os.path.join(log_path, train_name, str(lr))
     tb_callback = TensorBoard(log_dir=log_path, update_freq = 'epoch', profile_batch=0)
 
     # writer = tf.summary.create_file_writer(log_path)
     # tf.summary.trace_on(graph=True, profiler=True)
 
+    with file_writer.as_default():
+        # # custom data generator
+        train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
+                                                   task_type="classification", seq_length=seq_length, class_limit=class_limit,
+                                                   csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
+                                                   sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+                                                   )
 
-    # # custom data generator
-    # train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
-    #                                            task_type="classification", seq_length=seq_length, class_limit=class_limit,
-    #                                            csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
-    #                                            sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-    #                                            )
-    #
-    # test_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="test", data_type=data_type,
-    #                                            task_type="classification", seq_length=seq_length,
-    #                                           csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
-    #                                           sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-    #                                           )
+        test_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="test", data_type=data_type,
+                                                   task_type="classification", seq_length=seq_length,
+                                                  csv_path_root="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data",
+                                                  sequence_path="I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+                                                  )
 
-    # FOR DESKTOP
-    train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
-                                               task_type="classification", seq_length=seq_length,
-                                               class_limit=class_limit,
-                                               csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
-                                               sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-                                               )
+        # FOR DESKTOP
 
-    test_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="test", data_type=data_type,
-                                              task_type="classification", seq_length=seq_length,
-                                              csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
-                                              sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-                                              )
+        # train_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type,
+        #                                            task_type="classification", seq_length=seq_length,
+        #                                            class_limit=class_limit,
+        #                                            csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
+        #                                            sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+        #                                            )
+        #
+        # test_Generator = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="test", data_type=data_type,
+        #                                           task_type="classification", seq_length=seq_length,
+        #                                           csv_path_root="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data",
+        #                                           sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+        #                                           )
 
-    # select model
-    model = None
-    if model_tpye == "lstm_reg":
-        # features_length = 2048
-        # inputs = tf.keras.Input(shape=(seq_length, features_length))
-        model = LstmReg(image_shape).model()
-        loss = "mse"
-        metrics = ["mse", "mae"]
-    elif model_tpye == "lstm":
-        print("model_type", model_tpye)
-        num_classes = len(train_Generator.classes)
-        model = Lstm(num_classes, image_shape).model()
-        loss = "categorical_crossentropy"
-        metrics = ["accuracy"]
-        if num_classes >= 10:
-            metrics.append('top_k_categorical_accuracy')
-    else:
-        pass
+        # select model
+        model = None
+        if model_tpye == "lstm_reg":
+            # features_length = 2048
+            # inputs = tf.keras.Input(shape=(seq_length, features_length))
+            model = LstmReg(image_shape).model()
+            loss = "mse"
+            metrics = ["mse", "mae"]
+        elif model_tpye == "lstm":
+            print("model_type", model_tpye)
+            num_classes = len(train_Generator.classes)
+            model = Lstm(num_classes, image_shape).model()
+            loss = "categorical_crossentropy"
+            metrics = ["accuracy"]
+            if num_classes >= 10:
+                metrics.append('top_k_categorical_accuracy')
+        else:
+            pass
 
-    # tf.summary.trace_export(
-    #     name="my_trace",
-    #     step=0,
-    #     profiler_outdir=log_path)
-    # define optimizers
-    if lr_plan ==True:
-        nb_epoch=100
-        optimizer = Adam(lr=1e-8)  # for learning rate schedular
-        lr_schedule = tf.keras.callbacks.LearningRateScheduler(
-            lambda epoch: 1e-8 * 10 ** (epoch / 20))
-        calls = [lr_schedule, ES_callback, tb_callback]
-    else:
-        optimizer = Adam(lr=lr)
 
-        calls = [checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
+        #
+        # tf.summary.trace_export(
+        #     name="my_trace",
+        #     step=0,
+        #     profiler_outdir=log_path)
+        # define optimizers
+        if lr_plan ==True:
+            nb_epoch=100
+            optimizer = Adam(lr=1e-8)  # for learning rate schedular
+            lr_schedule = tf.keras.callbacks.LearningRateScheduler(
+                lambda epoch: 1e-8 * 10 ** (epoch / 20))
+            calls = [lr_schedule, ES_callback, tb_callback]
+        else:
+            optimizer = Adam(lr=lr)
 
-    print("loss:", loss)
-    print("metrics:", metrics)
-    print("optimizer:", optimizer)
+            calls = [checkpoint_callback, ES_callback, tb_callback, ck_cleaner]
 
-    if NUM_GPUS == 1:
-        model = get_compilied_model(model, loss=loss, opt=optimizer, metrics=metrics)
-        # print summary
-        print(model.summary())
-        # fit the custom generator
-        history =model.fit_generator(generator=train_Generator,
-                            validation_data=test_Generator,
-                            use_multiprocessing=True,
-                            callbacks=calls,
-                            workers=4,
-                            epochs=nb_epoch,
-                            shuffle=True)
+        print("loss:", loss)
+        print("metrics:", metrics)
+        print("optimizer:", optimizer)
 
-        # # resume training from the checkpoint
-        # model_info = model.fit(train_dataset,
-        #                        epochs=NUM_EPOCHS_2, callbacks=[checkpoint_callback],
-        #                        validation_data=test_dataset,
-        #                        validation_freq=1,
-        #                        initial_epoch=INIT_EPOCH_2)
 
-    else:
-        mirrored_strategy = tf.distribute.MirroredStrategy()
-        with mirrored_strategy.scope():
-            model= get_compilied_model(model, loss=loss, opt=optimizer, metrics=metrics)
-            # print summary
-            print(model.summary())
+        # write summaries
+        @tf.function
+        def my_lr_record(epoch):
+            tf.summary.scalar("learning rate", lr, step=epoch)
+
+        if NUM_GPUS == 1:
+            model = get_compilied_model(model, loss=loss, opt=optimizer, metrics=metrics)
+
+
+
             # fit the custom generator
-            history = model.fit_generator(generator=train_Generator,
+            history =model.fit_generator(generator=train_Generator,
                                 validation_data=test_Generator,
                                 use_multiprocessing=True,
                                 callbacks=calls,
@@ -150,15 +142,37 @@ def train(data_type, seq_length, model_tpye,  log_path, train_name, saved_model=
             #                        validation_freq=1,
             #                        initial_epoch=INIT_EPOCH_2)
 
-    if lr_plan ==True:
-        plt.semilogx(history.history["lr"], history.history["loss"])
-        plt.axis([1e-8, 1e-4, 0, 30])
-        plt.savefig('schedule_lr.png') #
+        else:
+            mirrored_strategy = tf.distribute.MirroredStrategy()
+            with mirrored_strategy.scope():
+                model= get_compilied_model(model, loss=loss, opt=optimizer, metrics=metrics)
+                # print summary
+                print(model.summary())
+                # fit the custom generator
+                history = model.fit_generator(generator=train_Generator,
+                                    validation_data=test_Generator,
+                                    use_multiprocessing=True,
+                                    callbacks=calls,
+                                    workers=4,
+                                    epochs=nb_epoch,
+                                    shuffle=True)
 
-    else:
-        plt.semilogx(history.history["lr"], history.history["loss"])
-        plt.axis([1e-8, 1e-5, 0, 30])
-        plt.savefig('training_lr.png')  #
+                # # resume training from the checkpoint
+                # model_info = model.fit(train_dataset,
+                #                        epochs=NUM_EPOCHS_2, callbacks=[checkpoint_callback],
+                #                        validation_data=test_dataset,
+                #                        validation_freq=1,
+                #                        initial_epoch=INIT_EPOCH_2)
+
+        if lr_plan ==True:
+            plt.semilogx(history.history["lr"], history.history["loss"])
+            plt.axis([1e-8, 1e-4, 0, 30])
+            plt.savefig('schedule_lr.png') #
+
+        # else:
+        #     plt.semilogx(history.history["lr"], history.history["loss"])
+        #     plt.axis([1e-8, 1e-5, 0, 30])
+        #     plt.savefig('training_lr.png')  #
 def main():
     """These are the main training settings. Set each before running
     this file."""
