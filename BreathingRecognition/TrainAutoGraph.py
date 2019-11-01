@@ -122,6 +122,55 @@ def get_extracted_batch_sequence(batch_records, sequence_path, seq_length,data_t
             pass
     return np.array(batch_x_list), np.array(batch_y_list)
 
+# use tf.GradientTape TO TRAIN model
+
+
+# evaluation -------------------------------------------->
+ # define average evaluation metrics
+train_avg_loss = tf.keras.metrics.Mean(name='train_avg_loss')
+train_avg_acc = tf.keras.metrics.Mean(name='train_avg_acc')
+train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
+
+test_avg_loss = tf.keras.metrics.Mean(name='test_avg_loss')
+test_avg_acc = tf.keras.metrics.Mean(name='test_avg_acc')
+test_accuracy = tf.keras.metrics.CategoricalAccuracy(name='test_accuracy')
+
+@tf.function
+def train_step(input_feature, labels, model, optimizer, loss_object):
+    with tf.GradientTape() as tape:
+        predictions = model(input_feature)
+        loss = loss_object(labels, predictions)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    train_avg_loss(loss)
+    train_avg_acc(train_accuracy(labels, predictions))
+
+
+# test model:
+@tf.function
+def test_step(input_feature, labels):
+    predictions = model(input_feature)
+    t_loss = loss_object(labels, predictions)
+
+    test_avg_loss(t_loss)
+    test_avg_acc(test_accuracy(labels, predictions))
+
+def write_tb_logs_scaler(writer, name_list, value_list, step):
+    with writer.as_default():
+        # optimizer.iterations is actually the entire counter from step 1 to step total batch
+        for i in range(len(name_list)):
+            tf.summary.scalar(name_list[i], value_list[i].result(), step=step)
+            value_list[i].reset_states()  # Clear accumulated values with .reset_states()
+        writer.flush()
+
+def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
+    with writer.as_default():
+        # optimizer.iterations is actually the entire counter from step 1 to step total batch
+        for i in range(len(name_list)):
+            tf.summary.image(name_list[i], value_list[i].result(), step=step, max_outputs=max_outs)
+            value_list[i].reset_states()  # Clear accumulated values with .reset_states()
+        writer.flush()
+
 if __name__ == '__main__':
     # hyper parramters
     class_limit = None  # int, can be 1-101 or None
@@ -135,6 +184,8 @@ if __name__ == '__main__':
     task_type = "classification"
     csv_path_root = "I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data"
     sequence_path = "I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+    tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\logs"
+
     # image shape
     feature_length =2048
     image_shape = (seq_length, feature_length)
@@ -172,38 +223,19 @@ if __name__ == '__main__':
     loss_object = tf.keras.losses.CategoricalCrossentropy()
     optimizer = tf.keras.optimizers.Adam()
 
-    # evaluation
-    train_loss = tf.keras.metrics.Mean(name='train_loss')
-    train_accuracy = tf.keras.metrics.CategoricalAccuracy(name='train_accuracy')
 
-    test_loss = tf.keras.metrics.Mean(name='test_loss')
-    test_accuracy = tf.keras.metrics.CategoricalAccuracy(name='test_accuracy')
 
-    # use tf.GradientTape TO TRAIN model
-    @tf.function
-    def train_step(input_feature, labels):
-        with tf.GradientTape() as tape:
-            predictions = model(input_feature)
-            loss = loss_object(labels, predictions)
-        gradients = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-        train_loss(loss)
-        train_accuracy(labels, predictions)
-
-    # test model:
-    @tf.function
-    def test_step(input_feature, labels):
-        predictions = model(input_feature)
-        t_loss = loss_object(labels, predictions)
-
-        test_loss(t_loss)
-        test_accuracy(labels, predictions)
+    # if log root dir does not exist, the writer will not write log files
+    if not os.path.exists(tb_log_root):
+        os.makedirs(tb_log_root)
+    train_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'train')) # tensorboard --logdir /tmp/summaries
+    test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
 
 
     # train loop:
     EPOCHS = 5
     total_num_Batchs= math.ceil(len(train_list)/batch_size)
+    log_freq = total_num_Batchs
     for epoch in range(EPOCHS):
         for (batch, each_batch) in enumerate(train_dataset):
             # print(each_batch)
@@ -212,16 +244,19 @@ if __name__ == '__main__':
                                          data_type=data_type, task_type=task_type, class_names=class_names)
             # print("x.shape:", train_batch_x.shape)
             # print("y.shape:", batch_y.shape)
-            train_step(train_batch_x, train_batch_y)
+            train_step(train_batch_x, train_batch_y, model, optimizer, loss_object)
+
             batch_template = 'Epoch {} - Batch[{}/{}], Loss: {}, Accuracy: {}'
 
             print(batch_template.format(epoch + 1,
                                         batch + 1,
                                         total_num_Batchs,
-                                        train_loss.result(),
-                                        train_accuracy.result() * 100))
+                                        train_avg_loss.result(),
+                                        train_avg_acc.result() * 100))
+            # train_avg_loss.update_state(loss)  # udpate_state use for accumulate values like append?
+            # train_avg_acc.update_state(train_accuracy(prediction, batch_y))
 
-        for each_batch in test_dataset:
+        for each_batch in test_dataset:  # validation after one epoch training
             # load input batch features
             test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch, seq_length=seq_length, sequence_path=sequence_path,
                                          data_type=data_type, task_type=task_type, class_names=class_names)
@@ -231,11 +266,20 @@ if __name__ == '__main__':
 
         template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
         print(template.format(epoch + 1,
-                              train_loss.result(),
-                              train_accuracy.result() * 100,
-                              test_loss.result(),
-                              test_accuracy.result() * 100))
+                              train_avg_loss.result(),
+                              train_avg_acc.result() * 100,
+                              test_avg_loss.result(),
+                              test_avg_acc.result() * 100))
 
+
+        if tf.equal(optimizer.iterations % log_freq, 0):
+            print("writing logs to tensorboard")
+            # write train logs # with the same name for train and test write will write multiple curves into one plot
+            write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_acc"],
+                                 [train_avg_loss, train_avg_acc], optimizer.iterations//log_freq)
+
+            write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_acc"],
+                                 [test_avg_loss, test_avg_acc], optimizer.iterations // log_freq)
 
 
 
