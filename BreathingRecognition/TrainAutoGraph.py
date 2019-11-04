@@ -157,7 +157,9 @@ def write_tb_logs_scaler(writer, name_list, value_list, step):
         # optimizer.iterations is actually the entire counter from step 1 to step total batch
         for i in range(len(name_list)):
             tf.summary.scalar(name_list[i], value_list[i].result(), step=step)
+            # print(value_list[i].result())
             value_list[i].reset_states()  # Clear accumulated values with .reset_states()
+            # print(value_list[i].result())
         writer.flush()
 
 def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
@@ -217,11 +219,11 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                               test_avg_acc.result() * 100))
 
 
-        print(int(ckpt.step))
-        print(ckpt_freq)
-        print(int(ckpt.step) % ckpt_freq == 0)
-        print(test_avg_acc.result().numpy())
-        print(float(test_avg_acc.result()) > temp_acc)
+        # print(int(ckpt.step))
+        # print(ckpt_freq)
+        # print(int(ckpt.step) % ckpt_freq == 0)
+        # print(test_avg_acc.result().numpy())
+        # print(float(test_avg_acc.result()) > temp_acc)
         if int(ckpt.step) % ckpt_freq == 0 and float(test_avg_acc.result().numpy()) > temp_acc:
             print("save model...")
             temp_acc = test_avg_acc.result()
@@ -314,7 +316,7 @@ if __name__ == '__main__':
     manager = tf.train.CheckpointManager(ckpt, ckpt_log_root, max_to_keep=3)
 
     # train loop:
-    EPOCHS = 5
+    EPOCHS = nb_epoch
     total_num_Batchs= math.ceil(len(train_list)/batch_size)
     log_freq = total_num_Batchs
     ckpt_freq  = 1 # 1 epoch
