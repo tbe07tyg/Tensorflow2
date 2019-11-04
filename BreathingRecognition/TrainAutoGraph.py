@@ -179,7 +179,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
         print("Initializing from scratch.")
 
     for epoch in range(EPOCHS):
-        ckpt.step.assign_add(1)
+
         for (batch, each_batch) in enumerate(train_dataset):
             # print(each_batch)
             # load input batch features
@@ -224,6 +224,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
         # print(int(ckpt.step) % ckpt_freq == 0)
         # print(test_avg_acc.result().numpy())
         # print(float(test_avg_acc.result()) > temp_acc)
+
         if int(ckpt.step) % ckpt_freq == 0 and float(test_avg_acc.result().numpy()) > temp_acc:
             print("save model...")
             temp_acc = test_avg_acc.result()
@@ -241,7 +242,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
             write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_acc"],
                                  [test_avg_loss, test_avg_acc], optimizer.iterations // log_freq)
 
-
+        ckpt.step.assign_add(1)
 
 
 if __name__ == '__main__':
@@ -261,8 +262,8 @@ if __name__ == '__main__':
     sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
     # tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\logs"
     # ckpt_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\ckpt"
-    tb_log_root = "C:\\deeplearningProjects\\Tensorflowv2\\BreathingRecognition\\logs"
-    ckpt_log_root = "C:\\deeplearningProjects\\Tensorflowv2\\BreathingRecognition\\ckpt"
+    tb_log_root = "C:\\deeplearningProjects\\Tensorflow2\\BreathingRecognition\\logs"
+    ckpt_log_root = "C:\\deeplearningProjects\\Tensorflow2\\BreathingRecognition\\ckpt"
     # image shape
     feature_length =2048
     image_shape = (seq_length, feature_length)
