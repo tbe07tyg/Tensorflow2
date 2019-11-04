@@ -248,7 +248,7 @@ if __name__ == '__main__':
     # hyper parramters
     class_limit = None  # int, can be 1-101 or None
     batch_size = 32
-    nb_epoch = 1000
+
     lr = 2e-6
     model_type = 'lstm'
     seq_length = 40
@@ -261,8 +261,8 @@ if __name__ == '__main__':
     sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
     # tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\logs"
     # ckpt_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\ckpt"
-    tb_log_root = "C:\\deeplearningProjects\\BreathingRecognition\\logs"
-    ckpt_log_root = "C:\\deeplearningProjects\\BreathingRecognition\\ckpt"
+    tb_log_root = "C:\\deeplearningProjects\\Tensorflowv2\\BreathingRecognition\\logs"
+    ckpt_log_root = "C:\\deeplearningProjects\\Tensorflowv2\\BreathingRecognition\\ckpt"
     # image shape
     feature_length =2048
     image_shape = (seq_length, feature_length)
@@ -316,7 +316,7 @@ if __name__ == '__main__':
     manager = tf.train.CheckpointManager(ckpt, ckpt_log_root, max_to_keep=3)
 
     # train loop:
-    EPOCHS = nb_epoch
+    EPOCHS = 1000
     total_num_Batchs= math.ceil(len(train_list)/batch_size)
     log_freq = total_num_Batchs
     ckpt_freq  = 1 # 1 epoch
