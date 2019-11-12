@@ -166,9 +166,19 @@ def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
     with writer.as_default():
         # optimizer.iterations is actually the entire counter from step 1 to step total batch
         for i in range(len(name_list)):
-            tf.summary.image(name_list[i], value_list[i].result(), step=step, max_outputs=max_outs)
-            value_list[i].reset_states()  # Clear accumulated values with .reset_states()
+            print(value_list[i].shape)
+            batch_images = np.expand_dims(value_list[i], -1)
+            print(batch_images.shape)
+            tf.summary.image(name_list[i], batch_images, step=step, max_outputs=max_outs)
+            # value_list[i].reset_states()  # Clear accumulated values with .reset_states()
         writer.flush()
+
+def write_tb_model_graph(writer, name, step, logdir):
+    with writer.as_default():
+        tf.summary.trace_export(
+            name=name,
+            step=step,
+            profiler_outdir=logdir)
 
 def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
     temp_acc =0
@@ -177,6 +187,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
         print("Restored from {}".format(manager.latest_checkpoint))
     else:
         print("Initializing from scratch.")
+    tf.summary.trace_on(graph=True, profiler=True)
 
     for epoch in range(EPOCHS):
 
@@ -187,6 +198,8 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                                                                         sequence_path=sequence_path,
                                                                         data_type=data_type, task_type=task_type,
                                                                         class_names=class_names)
+            print(train_batch_x.shape)
+            write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
             # print("x.shape:", train_batch_x.shape)
             # print("y.shape:", batch_y.shape)
             # print("train.batch.shape:", train_batch_x.shape)
@@ -196,13 +209,16 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
             print(batch_template.format(int(ckpt.step),
                                         batch + 1,
-                                        total_num_Batchs,
+                                        train_total_Batches,
                                         train_avg_loss.result(),
                                         train_avg_acc.result() * 100))
             # train_avg_loss.update_state(loss)  # udpate_state use for accumulate values like append?
             # train_avg_acc.update_state(train_accuracy(prediction, batch_y))
-
-        for each_batch in test_dataset:  # validation after one epoch training
+        # print(test_avg_acc.result().numpy())
+            if batch==0:
+                print("write model graph")
+                write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
+        for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
             # load input batch features
             test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch, seq_length=seq_length,
                                                                       sequence_path=sequence_path,
@@ -210,7 +226,13 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                                                                       class_names=class_names)
 
             test_step(test_batch_x, test_batch_y)
+            batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg Accuracy: {}'
 
+            print(batch_template.format(int(ckpt.step),
+                                        test_batch + 1,
+                                        test_total_Batches,
+                                        train_avg_loss.result(),
+                                        train_avg_acc.result() * 100))
         template = 'Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg Accuracy: {}'
         print(template.format(int(ckpt.step),
                               train_avg_loss.result(),
@@ -256,14 +278,14 @@ if __name__ == '__main__':
     max_frames = 300
     data_type = 'features'
     task_type = "classification"
-    # csv_path_root = "I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data"
-    # sequence_path = "I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-    csv_path_root = "C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data"
-    sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
-    # tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\logs"
-    # ckpt_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\ckpt"
-    tb_log_root = "C:\\deeplearningProjects\\Tensorflow2\\BreathingRecognition\\logs"
-    ckpt_log_root = "C:\\deeplearningProjects\\Tensorflow2\\BreathingRecognition\\ckpt"
+    csv_path_root = "I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data"
+    sequence_path = "I:\\DeepLearning\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+    # csv_path_root = "C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data"
+    # sequence_path="C:\\deeplearningProjects\\BreathingRecognition\\five-video-classification-methods-master\\data\\sequences"
+    tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\logs"
+    ckpt_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\ckpt"
+    # tb_log_root = "C:\\deeplearningProjects\\Tensorflow2\\BreathingRecognition\\logs"
+    # ckpt_log_root = "C:\\deeplearningProjects\\Tensorflow2\\BreathingRecognition\\ckpt"
     # image shape
     feature_length =2048
     image_shape = (seq_length, feature_length)
@@ -297,6 +319,7 @@ if __name__ == '__main__':
 
     model = Lstm(num_classes, image_shape).model()
 
+    print(model.summary())
     # train optimizer and loss
 
     # define evaluation metrics
@@ -318,8 +341,9 @@ if __name__ == '__main__':
 
     # train loop:
     EPOCHS = 1000
-    total_num_Batchs= math.ceil(len(train_list)/batch_size)
-    log_freq = total_num_Batchs
+    train_total_Batches= math.ceil(len(train_list)/batch_size)
+    test_total_Batches =  math.ceil(len(test_list)/batch_size)
+    log_freq = train_total_Batches
     ckpt_freq  = 1 # 1 epoch
 
     train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)

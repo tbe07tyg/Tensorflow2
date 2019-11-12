@@ -9,7 +9,7 @@ import os
 import os.path
 from subprocess import call
 
-def extract_files():
+def extract_files(dataset_Root):
     """After we have all of our videos split between train and test, and
     all nested within folders representing their classes, we need to
     make a data file that we can reference when training our RNN(s).
@@ -28,37 +28,41 @@ def extract_files():
     folders = ['train', 'test']
 
     for folder in folders:
-        class_folders = glob.glob(os.path.join(folder, '*'))
-        print("class folders:", class_folders)
-        for vid_class in class_folders:
-            class_files = glob.glob(os.path.join(vid_class, '*.mp4'))
-            print("class_files:", class_files)
-    #
-            for video_path in class_files:
-                # Get the parts of the file.
-                video_parts = get_video_parts(video_path)
-                print("video parts:", video_parts)
-    #
-                train_or_test, classname, filename_no_ext, filename = video_parts
+        video_filenames = glob.glob(os.path.join(dataset_Root, folder, '*'))
 
-                # Only extract if we haven't done it yet. Otherwise, just get
-                # the info.
-                if not check_already_extracted(video_parts):
-                    # Now extract it.
-                    src = os.path.join(train_or_test, classname, filename)
-                    print("src:", src)
-                    dest = os.path.join(train_or_test, classname,
-                        filename_no_ext + '-%04d.jpg')
-                    print("dest:", dest)
-                    call(["ffmpeg", "-i", src, dest])  # 用字符串数组作为执行命令 extract images from video
-                else:
-                    print("already exist!")
-                # Now get how many frames it is.
-                nb_frames = get_nb_frames_for_video(video_parts)
+        print("video_filenames:", video_filenames)
+        # for vid_class in class_folders:
+        #     class_files = glob.glob(os.path.join(vid_class, '*.mp4'))
+        #     print("class_files:", class_files)
     #
-                data_file.append([train_or_test, classname, filename_no_ext, nb_frames])
-    #
-                print("Generated %d frames for %s" % (nb_frames, filename_no_ext))
+        for video_path in video_filenames:
+            # Get the parts of the file.
+            video_parts = get_video_parts(video_path)
+            print("video parts:", video_parts)
+#
+            train_or_test, classname, filename_no_ext, filename = video_parts
+
+            # Only extract if we haven't done it yet. Otherwise, just get
+            # the info.
+            if not check_already_extracted(video_parts,dataset_Root):
+                # Now extract it.
+                # src = os.path.join(train_or_test, classname, filename)
+                src = video_path
+                print("src:", src)
+                dest_root = os.path.join(dataset_Root, train_or_test, classname)
+                if not os.path.exists(dest_root):
+                    os.makedirs(dest_root)
+                dest = os.path.join(dest_root, filename_no_ext + '-%04d.jpg')
+                print("dest:", dest)
+                call(["ffmpeg", "-i", src, dest])  # 用字符串数组作为执行命令 extract images from video
+            else:
+                print("already exist!")
+            # Now get how many frames it is.
+            nb_frames = get_nb_frames_for_video(video_parts, root_dir=dataset_Root)
+#
+            data_file.append([train_or_test, classname, filename_no_ext, nb_frames])
+#
+            print("Generated %d frames for %s" % (nb_frames, filename_no_ext))
 
     print("datafile:", data_file)
     print("Extracted and wrote %d video files." % (len(data_file)))
@@ -71,11 +75,11 @@ def extract_files():
         writer = csv.writer(fout)
         writer.writerows(data_file)
 
-def get_nb_frames_for_video(video_parts):
+def get_nb_frames_for_video(video_parts, root_dir):
     """Given video parts of an (assumed) already extracted video, return
     the number of frames that were extracted."""
     train_or_test, classname, filename_no_ext, _ = video_parts
-    generated_files = glob.glob(os.path.join(train_or_test, classname,
+    generated_files = glob.glob(os.path.join(root_dir, train_or_test, classname,
                                 filename_no_ext + '*.jpg'))
     return len(generated_files)
 
@@ -83,21 +87,21 @@ def get_video_parts(video_path):
     """Given a full path to a video, return its parts."""
     parts = video_path.split(os.path.sep)
     print("parts:", parts)
-    filename = parts[2]
+    filename = parts[4]
     print("filename:", filename)
-    filename_no_ext = filename.split('.')[0] # file name without extention
+    filename_no_ext = filename.rpartition('.')[0] # file name without extention
     print("filename_no_ext:", filename_no_ext)
-    classname = parts[1]
+    classname = filename_no_ext.rpartition("_")[-1]
     print("classname:", classname)
-    train_or_test = parts[0]
+    train_or_test = parts[3]
     print("train_or_test:", train_or_test)
 
     return train_or_test, classname, filename_no_ext, filename
 
-def check_already_extracted(video_parts):
+def check_already_extracted(video_parts, dataset_root):
     """Check to see if we created the -0001 frame of this file."""
     train_or_test, classname, filename_no_ext, _ = video_parts
-    return bool(os.path.exists(os.path.join(train_or_test, classname,
+    return bool(os.path.exists(os.path.join(dataset_root,train_or_test, classname,
                                filename_no_ext + '-0001.jpg')))
 
 def main():
@@ -107,7 +111,8 @@ def main():
 
     [train|test], class, filename, nb frames
     """
-    extract_files()
+    data_root = "I:\\dataset\\BreathingData"
+    extract_files(data_root)
 
 if __name__ == '__main__':
     main()
