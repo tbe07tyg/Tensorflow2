@@ -13,8 +13,8 @@ Then set the same number when training models.
 """
 import numpy as np
 import os.path
-from MyVideoRegression.data import DataSet
-from MyVideoRegression.extractor import Extractor
+from BreathingRecognition.data import DataSet
+from BreathingRecognition.extractor import Extractor
 from tqdm import tqdm
 
 # Set defaults.
