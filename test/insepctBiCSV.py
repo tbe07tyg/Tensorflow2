@@ -8,6 +8,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import acf, pacf
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from pandas.plotting import autocorrelation_plot
+from scipy.signal import butter, lfilter, freqz
 # CSV path
 csv_root_path = "I:\\dataset\\BreathingData\\test_csv\\"
 csv_root_path2 = "I:\\dataset\\BreathingData\\train_csv\\"
@@ -20,7 +21,7 @@ full_path_wave_time = os.path.join(csv_root_path, filename1)
 full_path_wave_time2 = os.path.join(csv_root_path2, filename2)
 # full_path_frame_time = os.path.join(csv_root_path, filename2)
 
-fig, axes = plt.subplots(2, 4, figsize=(10, 4))
+fig, axes = plt.subplots(4, 4, figsize=(10, 4))
 
 # print("full_path:", full_path_wave_time)
 data_time_wave_raw = pd.read_csv(full_path_wave_time)
@@ -111,8 +112,8 @@ yf_norm=abs(fft(raw_signal_no_mean))/N #归一化处理
 print(yf_norm.shape)
 axes[0, 1].plot(f_axis, yf_norm)
 axes[0, 1].set_xlabel("frequency(Hz[0->fs])")
-axes[0, 1].set_ylabel("magnitude")
-axes[0, 1].set_ylabel("fft")
+axes[0, 1].set_ylabel("magnitude(abs(fft(y))/N)")
+
 axes[0, 1].set_xlim([0, 50])
 
 f_axis_half = np.arange(0, fs//2, delta_f)
@@ -122,15 +123,15 @@ print("f_axis_half", f_axis_half.shape)
 print(f_axis_half)
 axes[0, 2].plot(f_axis_half, yf_half, marker = "+")
 axes[0, 2].set_xlabel("frequency(Hz)[0->fs/2]")
-axes[0, 2].set_ylabel("magnitude")
-axes[0, 2].set_ylabel("fft")
+axes[0, 2].set_ylabel("magnitude(abs(fft(y))/N)")
+
 axes[0, 2].set_xlim([0, fs//2])
 # axes[1].legend()
 
 axes[0, 3].plot(f_axis_half, yf_half, marker = "+")
 axes[0, 3].set_xlabel("zoom frequency(Hz)[0->2s]")
-axes[0, 3].set_ylabel("magnitude")
-axes[0, 3].set_ylabel("fft")
+axes[0, 3].set_ylabel("magnitude(abs(fft(y))/N)")
+
 axes[0, 3].set_xlim([0, 2])
 max_indx = np.argmax(yf_half)
 bpm= f_axis_half[max_indx]*60
@@ -189,4 +190,92 @@ show_max2='['+str(round(f_axis_half2[max_indx2],2))+'(' +str(round(bpm2,2))+'bpm
 axes[1, 3].annotate(show_max2, xy=(f_axis_half2[max_indx2], yf_half2[max_indx2]), xytext=(f_axis_half2[max_indx2]+0.3, yf_half2[max_indx2]+0.3),
              arrowprops=dict(facecolor='black', shrink=-0.05),
              )
+
+
+
+# filtering------------------------------->
+from scipy.signal import butter, lfilter
+
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return b, a
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+
+# Sample rate and desired cutoff frequencies (in Hz).
+fs= 50
+# lowcut1=0.01
+# highcut1 = 1.5
+order= 4 # for FIR filter
+desired_f1 = f_axis_half[max_indx]
+print("desired frequency:", desired_f1)
+print("delta frequency:", delta_f)
+lowcut1=desired_f1-2*delta_f
+highcut1 = desired_f1+2*delta_f
+
+
+from scipy.signal import freqz
+
+for order in [3, 4, 5, 6]:
+    b, a = butter_bandpass(lowcut1, highcut1, fs, order=order)
+    w1, h1 = freqz(b, a, worN=N)
+    axes[2, 3].plot((fs * 0.5 / np.pi) * w1, abs(h1), marker= "+", label="order = %d" % order)
+axes[2, 3].set_xlim([0, 2])
+axes[2, 3].set_xlabel("zoom Bandpass[0.1->1.5Hz] frequency(Hz)[0->2s]")
+axes[2, 3].set_ylabel("Gain")
+axes[2, 3].plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)],
+             '--', label='sqrt(0.5)')
+# filtered_signal1 = butter_bandpass_filter(raw_signal_no_mean, )
+max_indx3 = np.argmax(abs(h1))
+ff_h = abs(h1)
+ff_axis =  (fs * 0.5 / np.pi) * w1
+print("target bp:", ff_axis[max_indx3],ff_h[max_indx3])
+# low_index =  ff_axis.index(lowcut1)
+show_max3='['+str(round(ff_axis[max_indx3],2))+' '+str(round(ff_h[max_indx3],2))+']'
+# axes[2, 3].annotate(show_max3, xy=(ff_axis[max_indx3], ff_h[max_indx3]), xytext=(ff_axis[max_indx3]+0.1, ff_h[max_indx3]+0.1),
+#              arrowprops=dict(facecolor='black', shrink=-0.05),
+#              )
+axes[2, 3].legend()
+
+axes[2, 2].plot(f_axis_half, yf_half, marker = "+")
+axes[2, 2].set_xlabel("zoom frequency(Hz)[0->2s]")
+axes[2, 2].set_ylabel("magnitude(abs(fft(y))/N)")
+
+axes[2, 2].set_xlim([0, 2])
+
+
+y = butter_bandpass_filter(data_value, lowcut1, highcut1, fs, order=4)
+axes[2, 0].plot(time_value2, y ,'b', marker='*', label="raw 1000 samples")
+print("y_values2", y)
+print("time_values2", time_value2)
+print("time length2:", len(time_value2))
+print("csv_value length2", len(y))
+axes[2, 0].set_xlabel("time(s) for 21.13 bpm")
+axes[2, 0].set_ylabel("removed DC resp_wave")
+axes[2, 0].set_xlim([0, 2])
+# axes[0, 0].set_ylim([500, 600])
+axes[2, 0].legend(loc="best")
+
+# fft
+fs = 50
+N2= len(y)
+delta_f2  = fs/N2
+f_axis2 =  np.arange(0, fs, delta_f2)
+# fft_out = fft(data_value, n=N)
+# yf=abs(fft(data_value)) # 取绝对值
+yff_norm2=abs(fft(y))/N2 #归一化处理
+print(yf_norm2.shape)
+axes[2, 1].plot(f_axis2, yff_norm2)
+axes[2, 1].set_xlabel("frequency(Hz[0->fs])")
+axes[2, 1].set_ylabel("magnitude(abs(fft(y))/N)")
+axes[2, 1].set_xlim([0, 20])
+
+plt.subplots_adjust(hspace=0.47)
 plt.show()
