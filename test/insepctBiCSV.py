@@ -162,8 +162,8 @@ yf_norm2=abs(fft(raw_signal_no_mean2))/N2 #归一化处理
 print(yf_norm2.shape)
 axes[1, 1].plot(f_axis2, yf_norm2)
 axes[1, 1].set_xlabel("frequency(Hz[0->fs])")
-axes[1, 1].set_ylabel("magnitude")
-axes[1, 1].set_ylabel("fft")
+axes[1, 1].set_ylabel("magnitude(abs(fft(y))/N)")
+
 axes[1, 1].set_xlim([0, 50])
 
 f_axis_half2 = np.arange(0, fs//2, delta_f2)
@@ -173,15 +173,15 @@ print("f_axis_half2", f_axis_half2.shape)
 print(f_axis_half2)
 axes[1, 2].plot(f_axis_half2, yf_half2, marker = "+")
 axes[1, 2].set_xlabel("frequency(Hz)[0->fs/2]")
-axes[1, 2].set_ylabel("magnitude")
-axes[1, 2].set_ylabel("fft")
+axes[1, 2].set_ylabel("magnitude(abs(fft(y))/N)")
+
 axes[1, 2].set_xlim([0, fs//2])
 # axes[1].legend()
 
 axes[1, 3].plot(f_axis_half2, yf_half2, marker = "+")
 axes[1, 3].set_xlabel("zoom frequency(Hz)[0->2s]")
-axes[1, 3].set_ylabel("magnitude")
-axes[1, 3].set_ylabel("fft")
+axes[1, 3].set_ylabel("magnitude(abs(fft(y))/N)")
+
 axes[1, 3].set_xlim([0, 2])
 max_indx2 = np.argmax(yf_half2)
 bpm2= f_axis_half2[max_indx2]*60
