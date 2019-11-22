@@ -68,7 +68,7 @@ def rescale_list(input_list, size):
     assert len(input_list) >= size
 
     # Get the number to skip between iterations.
-    skip = len(input_list) // (size-1)
+    skip = len(input_list) // (size)
     print("skip:", skip)
 
     # Build our new output.
@@ -77,8 +77,9 @@ def rescale_list(input_list, size):
     # Cut off the last one if needed.
     return output[:size]
     # return output
-num_down_samples =  320
-down_sampled_value = rescale_list(raw_signal_no_mean, num_down_samples)
+num_down_samples =  40
+# down_sampled_value = rescale_list(raw_signal_no_mean, num_down_samples)
+down_sampled_value = rescale_list(raw_signal_no_mean2, num_down_samples)
 down_sampled_time = rescale_list(time_value, num_down_samples)
 
 print("data_value", data_value, len(data_value))
@@ -86,11 +87,66 @@ print("down_sampled_value", down_sampled_value, len(down_sampled_value))
 print("time_values", time_value, len(time_value))
 print("down_sampled_time", down_sampled_time, len(down_sampled_time))
 
+# down-sample csv
+axes[3, 0].plot(down_sampled_time, down_sampled_value,'b', marker='*', label="down_sampled" +str(len(down_sampled_value)) +" samples")
+print("down_sampled_value", down_sampled_value)
+print("down_sampled_time", down_sampled_time)
+print("down_sampled_time length:", len(down_sampled_time))
+print("down_sampled_value length:", len(down_sampled_value))
+# axes[3, 0].set_xlabel("time(s) for 14.15 bpm")
+axes[3, 0].set_xlabel("time(s) for 21.13 bpm")
+axes[3, 0].set_ylabel("removed DC resp_wave")
+axes[3, 0].set_xlim([0, 20])
+# axes[0, 0].set_ylim([500, 600])
+axes[3, 0].legend(loc="best")
+# fft
+
+Td = 20
+fs = num_down_samples/Td
+d_N= len(down_sampled_value)
+d_delta_f  = fs/d_N
+d_f_axis =  np.arange(0, fs, d_delta_f)
+# fft_out = fft(data_value, n=N)
+# yf=abs(fft(data_value)) # 取绝对值
+d_yf_norm=abs(fft(down_sampled_value))/d_N #归一化处理
+print(d_yf_norm.shape)
+axes[3, 1].plot(d_f_axis, d_yf_norm)
+axes[3, 1].set_xlabel("frequency(Hz[0->fs])")
+axes[3, 1].set_ylabel("magnitude(abs(fft(y))/N)")
+
+axes[3, 1].set_xlim([0, fs])
+
+d_f_axis_half = np.arange(0, fs//2, d_delta_f)
+d_yf_half =  d_yf_norm[0: len(d_f_axis_half)]
+print("d_y_half", d_yf_half.shape)
+print("d_f_axis_half", d_f_axis_half.shape)
+print(d_f_axis_half)
+axes[3, 2].plot(d_f_axis_half, d_yf_half, marker = "+")
+axes[3, 2].set_xlabel("frequency(Hz)[0->fs/2]")
+axes[3, 2].set_ylabel("magnitude(abs(fft(y))/N)")
+
+axes[3, 2].set_xlim([0, fs//2])
+# axes[1].legend()
+
+axes[3, 3].plot(d_f_axis_half, d_yf_half, marker = "+")
+axes[3, 3].set_xlabel("zoom frequency(Hz)[0->2s]")
+axes[3, 3].set_ylabel("magnitude(abs(fft(y))/N)")
+
+axes[3, 3].set_xlim([0, 2])
+max_indx = np.argmax(d_yf_half)
+bpm= d_f_axis_half[max_indx]*60
+show_max='['+str(round(d_f_axis_half[max_indx], 2))+'(' +str(round(bpm, 2))+'bpm)'+' '+str(round(d_yf_half[max_indx], 2))+']'
+axes[3, 3].annotate(show_max, xy=(d_f_axis_half[max_indx], d_yf_half[max_indx]), xytext=(d_f_axis_half[max_indx]+0.3, d_yf_half[max_indx]+0.3),
+             arrowprops=dict(facecolor='black', shrink=-0.05),
+             )
+
+
+
 
 # axes[0, 0].stem(time_value, data_value, 'b', markerfmt='bo', label='raw 1000 samples')
 # axes[0, 0].stem(down_sampled_time, down_sampled_value, 'r', markerfmt='ro', label='320 samples')
 
-axes[0, 0].plot(time_value, raw_signal_no_mean,'b', marker='*', label="raw 1000 samples")
+axes[0, 0].plot(time_value, raw_signal_no_mean,'b', marker='*', label="raw_" +str(len(raw_signal_no_mean)) +" samples")
 print("csv_values", data_value)
 print("time_values", time_value)
 print("time length:", len(time_value))
@@ -259,7 +315,7 @@ print("time length2:", len(time_value2))
 print("csv_value length2", len(y))
 axes[2, 0].set_xlabel("time(s) for 21.13 bpm")
 axes[2, 0].set_ylabel("removed DC resp_wave")
-axes[2, 0].set_xlim([0, 2])
+axes[2, 0].set_xlim([0, 20])
 # axes[0, 0].set_ylim([500, 600])
 axes[2, 0].legend(loc="best")
 
@@ -272,10 +328,20 @@ f_axis2 =  np.arange(0, fs, delta_f2)
 # yf=abs(fft(data_value)) # 取绝对值
 yff_norm2=abs(fft(y))/N2 #归一化处理
 print(yf_norm2.shape)
-axes[2, 1].plot(f_axis2, yff_norm2)
+axes[2, 1].plot(f_axis2, yff_norm2, marker="+")
 axes[2, 1].set_xlabel("frequency(Hz[0->fs])")
 axes[2, 1].set_ylabel("magnitude(abs(fft(y))/N)")
-axes[2, 1].set_xlim([0, 20])
+axes[2, 1].set_xlim([0, 2])
+
+
+
+
+
+
+
+
+print("data_value 14.15:", len(data_value))
+print("data_sample_value 14.15", len(down_sampled_value))
 
 plt.subplots_adjust(hspace=0.47)
 plt.show()
