@@ -187,7 +187,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
         print("Restored from {}".format(manager.latest_checkpoint))
     else:
         print("Initializing from scratch.")
-    tf.summary.trace_on(graph=True, profiler=True)
+
 
     for epoch in range(EPOCHS):
 
@@ -218,6 +218,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
         # print(test_avg_acc.result().numpy())
             if batch==0:
                 print("write model graph")
+                tf.summary.trace_on(graph=True, profiler=True)
                 write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
         for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
             # load input batch features

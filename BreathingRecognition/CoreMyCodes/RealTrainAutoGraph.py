@@ -142,11 +142,9 @@ def train_step(input_feature, labels, model, optimizer):
 # test model: # tf.function will build graph when loading the script
 @tf.function
 def test_step(input_feature, labels):
-    acc_object = tf.keras.metrics.mae()
-    loss_object = tf.keras.losses.Huber()
     predictions = model(input_feature)
-    t_loss = loss_object(labels, predictions)
-    t_acc = acc_object(labels, predictions)
+    t_loss =  tf.keras.losses.mean_squared_error(labels, predictions)
+    t_acc = tf.keras.metrics.mae(labels, predictions)
     test_avg_loss(t_loss)
     test_avg_acc(t_acc)
 
@@ -185,7 +183,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
         print("Restored from {}".format(manager.latest_checkpoint))
     else:
         print("Initializing from scratch.")
-    tf.summary.trace_on(graph=True, profiler=True)
+
 
     for epoch in range(EPOCHS):
 
@@ -193,75 +191,67 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
             # print(each_batch)
             # load input batch features
             train_batch_x, train_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
-            print("train_batch_x.shape:", train_batch_x.shape)
-            print("train_batch_y.shape:", train_batch_y.shape)
-            print(type(train_batch_x))
-            print(type(train_batch_y))
+            # print("train_batch_x.shape:", train_batch_x.shape)
+            # print("train_batch_y.shape:", train_batch_y.shape)
+            # print(type(train_batch_x))
+            # print(type(train_batch_y))
             write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
 
 
             train_step(train_batch_x, train_batch_y, model, optimizer)
         #
-        #     batch_template = 'Epoch {} - Batch[{}/{}], Train Avg Loss: {}, Train Avg Accuracy: {}'
+            batch_template = 'Epoch {} - Batch[{}/{}], Train Avg Loss: {}, Train Avg MAE: {}'
         #
-        #     print(batch_template.format(int(ckpt.step),
-        #                                 batch + 1,
-        #                                 train_total_Batches,
-        #                                 train_avg_loss.result(),
-        #                                 train_avg_acc.result() * 100))
-        #     # train_avg_loss.update_state(loss)  # udpate_state use for accumulate values like append?
-        #     # train_avg_acc.update_state(train_accuracy(prediction, batch_y))
-        # # print(test_avg_acc.result().numpy())
-        #     if batch==0:
-        #         print("write model graph")
-        #         write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
-        # for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
-        #     # load input batch features
-        #     test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch, seq_length=seq_length,
-        #                                                               sequence_path=sequence_path,
-        #                                                               data_type=data_type, task_type=task_type,
-        #                                                               class_names=class_names)
+            print(batch_template.format(int(ckpt.step),
+                                        batch + 1,
+                                        train_total_Batches,
+                                        train_avg_loss.result(),
+                                        train_avg_acc.result() * 100))
+
+
+            if batch==0:
+                print("write model graph")
+                tf.summary.trace_on(graph=True, profiler=True)
+                write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
+        for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
+            # load input batch features
+            test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
+
+            test_step(test_batch_x, test_batch_y)
+            batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg MAE: {}'
+
+            print(batch_template.format(int(ckpt.step),
+                                        test_batch + 1,
+                                        test_total_Batches,
+                                        train_avg_loss.result(),
+                                        train_avg_acc.result() * 100))
+        template = 'Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg MAE: {}'
+        print(template.format(int(ckpt.step),
+                              train_avg_loss.result(),
+                              train_avg_acc.result() * 100,
+                              test_avg_loss.result(),
+                              test_avg_acc.result() * 100))
         #
-        #     test_step(test_batch_x, test_batch_y)
-        #     batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg Accuracy: {}'
+
         #
-        #     print(batch_template.format(int(ckpt.step),
-        #                                 test_batch + 1,
-        #                                 test_total_Batches,
-        #                                 train_avg_loss.result(),
-        #                                 train_avg_acc.result() * 100))
-        # template = 'Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg Accuracy: {}'
-        # print(template.format(int(ckpt.step),
-        #                       train_avg_loss.result(),
-        #                       train_avg_acc.result() * 100,
-        #                       test_avg_loss.result(),
-        #                       test_avg_acc.result() * 100))
-        #
-        #
-        # # print(int(ckpt.step))
-        # # print(ckpt_freq)
-        # # print(int(ckpt.step) % ckpt_freq == 0)
-        # # print(test_avg_acc.result().numpy())
-        # # print(float(test_avg_acc.result()) > temp_acc)
-        #
-        # if int(ckpt.step) % ckpt_freq == 0 and float(test_avg_acc.result().numpy()) > temp_acc:
-        #     print("save model...")
-        #     temp_acc = test_avg_acc.result()
-        #     save_path = manager.save()
-        #     print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
-        #     print("Where test acc {:1.2f} %".format(test_avg_acc.result() * 100))
-        #
-        #
-        # if tf.equal(optimizer.iterations % log_freq, 0):
-        #     print("writing logs to tensorboard")
-        #     # write train logs # with the same name for train and test write will write multiple curves into one plot
-        #     write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_acc"],
-        #                          [train_avg_loss, train_avg_acc], optimizer.iterations // log_freq)
-        #
-        #     write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_acc"],
-        #                          [test_avg_loss, test_avg_acc], optimizer.iterations // log_freq)
-        #
-        # ckpt.step.assign_add(1)
+        if int(ckpt.step) % ckpt_freq == 0 and float(test_avg_acc.result().numpy()) <temp_mae:
+            print("save model...")
+            temp_mae = test_avg_acc.result()
+            save_path = manager.save()
+            print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
+            print("Where test acc {:1.2f} %".format(test_avg_acc.result() * 100))
+
+
+        if tf.equal(optimizer.iterations % log_freq, 0):
+            print("writing logs to tensorboard")
+            # write train logs # with the same name for train and test write will write multiple curves into one plot
+            write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_MAE"],
+                                 [train_avg_loss, train_avg_acc], optimizer.iterations // log_freq)
+
+            write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_MAE"],
+                                 [test_avg_loss, test_avg_acc], optimizer.iterations // log_freq)
+
+        ckpt.step.assign_add(1)
 
 
 if __name__ == '__main__':
