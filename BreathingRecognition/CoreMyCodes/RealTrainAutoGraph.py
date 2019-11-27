@@ -89,32 +89,31 @@ def get_target_value_regression(target_str):
     """
     return re.findall(r"\d+\.?\d*", target_str)[0]
 
-def get_extracted_batch_sequence(batch_records, sequence_path, seq_length,data_type, task_type, class_names):
+def get_extracted_batch_sequence(batch_records, class_names=None):
     """Get the saved extracted features."""
     batch_x_list = []
     batch_y_list = []
     # print("batch sample", batch_records)
     for each in batch_records.numpy():
-        filename = each[2].decode("utf-8")
+        # batch record is as formart: [train or test, target value, npy path without suffix, # of frames]
         # print(filename)
-        path = os.path.join(sequence_path, filename + '-' + str(seq_length) + \
-                            '-' + data_type + '.npy')
+
+        path = each[2].decode("utf-8") + '.npy'
         # print(path)
         if os.path.isfile(path):
             batch_x_list.append(np.load(path))
         else:
             raise Exception("please check the npy path")
 
-        if task_type == "classification":
+        if not class_names == None:
             batch_y_list.append(get_class_one_hot(class_names=class_names, class_str=each[1].decode("utf-8")))
             # print(y)
-        elif task_type == "regression":
+        else:
             # print("here")
             # print(sample[1])
             batch_y_list.append(float(get_target_value_regression(each[1].decode("utf-8"))))
             # print(y)
-        else:
-            pass
+
     return np.array(batch_x_list), np.array(batch_y_list)
 
 # use tf.GradientTape TO TRAIN model
@@ -126,14 +125,14 @@ train_avg_acc = tf.keras.metrics.Mean(name='train_avg_acc')
 test_avg_loss = tf.keras.metrics.Mean(name='test_avg_loss')
 test_avg_acc = tf.keras.metrics.Mean(name='test_avg_acc')
 
+
 @tf.function
 def train_step(input_feature, labels, model, optimizer):
-    acc_object = tf.keras.metrics.mae()
-    loss_object = tf.keras.losses.mean_squared_error()
+
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
-        loss = loss_object(labels, predictions)
-        acc =  acc_object(labels, predictions)
+        loss = tf.keras.losses.mean_squared_error(labels, predictions)
+        acc =  tf.keras.metrics.mae(labels, predictions)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     train_avg_loss(loss)
@@ -144,7 +143,7 @@ def train_step(input_feature, labels, model, optimizer):
 @tf.function
 def test_step(input_feature, labels):
     acc_object = tf.keras.metrics.mae()
-    loss_object = tf.keras.losses.mean_squared_error()
+    loss_object = tf.keras.losses.Huber()
     predictions = model(input_feature)
     t_loss = loss_object(labels, predictions)
     t_acc = acc_object(labels, predictions)
@@ -165,9 +164,9 @@ def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
     with writer.as_default():
         # optimizer.iterations is actually the entire counter from step 1 to step total batch
         for i in range(len(name_list)):
-            print(value_list[i].shape)
+            # print(value_list[i].shape)
             batch_images = np.expand_dims(value_list[i], -1)
-            print(batch_images.shape)
+            # print(batch_images.shape)
             tf.summary.image(name_list[i], batch_images, step=step, max_outputs=max_outs)
             # value_list[i].reset_states()  # Clear accumulated values with .reset_states()
         writer.flush()
@@ -193,77 +192,76 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
         for (batch, each_batch) in enumerate(train_dataset):
             # print(each_batch)
             # load input batch features
-            train_batch_x, train_batch_y = get_extracted_batch_sequence(batch_records=each_batch, seq_length=seq_length,
-                                                                        sequence_path=sequence_path,
-                                                                        data_type=data_type, task_type=task_type,
-                                                                        class_names=class_names)
-            print(train_batch_x.shape)
+            train_batch_x, train_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
+            print("train_batch_x.shape:", train_batch_x.shape)
+            print("train_batch_y.shape:", train_batch_y.shape)
+            print(type(train_batch_x))
+            print(type(train_batch_y))
             write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
-            # print("x.shape:", train_batch_x.shape)
-            # print("y.shape:", batch_y.shape)
-            # print("train.batch.shape:", train_batch_x.shape)
+
+
             train_step(train_batch_x, train_batch_y, model, optimizer)
-
-            batch_template = 'Epoch {} - Batch[{}/{}], Train Avg Loss: {}, Train Avg Accuracy: {}'
-
-            print(batch_template.format(int(ckpt.step),
-                                        batch + 1,
-                                        train_total_Batches,
-                                        train_avg_loss.result(),
-                                        train_avg_acc.result() * 100))
-            # train_avg_loss.update_state(loss)  # udpate_state use for accumulate values like append?
-            # train_avg_acc.update_state(train_accuracy(prediction, batch_y))
-        # print(test_avg_acc.result().numpy())
-            if batch==0:
-                print("write model graph")
-                write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
-        for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
-            # load input batch features
-            test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch, seq_length=seq_length,
-                                                                      sequence_path=sequence_path,
-                                                                      data_type=data_type, task_type=task_type,
-                                                                      class_names=class_names)
-
-            test_step(test_batch_x, test_batch_y)
-            batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg Accuracy: {}'
-
-            print(batch_template.format(int(ckpt.step),
-                                        test_batch + 1,
-                                        test_total_Batches,
-                                        train_avg_loss.result(),
-                                        train_avg_acc.result() * 100))
-        template = 'Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg Accuracy: {}'
-        print(template.format(int(ckpt.step),
-                              train_avg_loss.result(),
-                              train_avg_acc.result() * 100,
-                              test_avg_loss.result(),
-                              test_avg_acc.result() * 100))
-
-
-        # print(int(ckpt.step))
-        # print(ckpt_freq)
-        # print(int(ckpt.step) % ckpt_freq == 0)
-        # print(test_avg_acc.result().numpy())
-        # print(float(test_avg_acc.result()) > temp_acc)
-
-        if int(ckpt.step) % ckpt_freq == 0 and float(test_avg_acc.result().numpy()) > temp_acc:
-            print("save model...")
-            temp_acc = test_avg_acc.result()
-            save_path = manager.save()
-            print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
-            print("Where test acc {:1.2f} %".format(test_avg_acc.result() * 100))
-
-
-        if tf.equal(optimizer.iterations % log_freq, 0):
-            print("writing logs to tensorboard")
-            # write train logs # with the same name for train and test write will write multiple curves into one plot
-            write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_acc"],
-                                 [train_avg_loss, train_avg_acc], optimizer.iterations // log_freq)
-
-            write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_acc"],
-                                 [test_avg_loss, test_avg_acc], optimizer.iterations // log_freq)
-
-        ckpt.step.assign_add(1)
+        #
+        #     batch_template = 'Epoch {} - Batch[{}/{}], Train Avg Loss: {}, Train Avg Accuracy: {}'
+        #
+        #     print(batch_template.format(int(ckpt.step),
+        #                                 batch + 1,
+        #                                 train_total_Batches,
+        #                                 train_avg_loss.result(),
+        #                                 train_avg_acc.result() * 100))
+        #     # train_avg_loss.update_state(loss)  # udpate_state use for accumulate values like append?
+        #     # train_avg_acc.update_state(train_accuracy(prediction, batch_y))
+        # # print(test_avg_acc.result().numpy())
+        #     if batch==0:
+        #         print("write model graph")
+        #         write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
+        # for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
+        #     # load input batch features
+        #     test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch, seq_length=seq_length,
+        #                                                               sequence_path=sequence_path,
+        #                                                               data_type=data_type, task_type=task_type,
+        #                                                               class_names=class_names)
+        #
+        #     test_step(test_batch_x, test_batch_y)
+        #     batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg Accuracy: {}'
+        #
+        #     print(batch_template.format(int(ckpt.step),
+        #                                 test_batch + 1,
+        #                                 test_total_Batches,
+        #                                 train_avg_loss.result(),
+        #                                 train_avg_acc.result() * 100))
+        # template = 'Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg Accuracy: {}'
+        # print(template.format(int(ckpt.step),
+        #                       train_avg_loss.result(),
+        #                       train_avg_acc.result() * 100,
+        #                       test_avg_loss.result(),
+        #                       test_avg_acc.result() * 100))
+        #
+        #
+        # # print(int(ckpt.step))
+        # # print(ckpt_freq)
+        # # print(int(ckpt.step) % ckpt_freq == 0)
+        # # print(test_avg_acc.result().numpy())
+        # # print(float(test_avg_acc.result()) > temp_acc)
+        #
+        # if int(ckpt.step) % ckpt_freq == 0 and float(test_avg_acc.result().numpy()) > temp_acc:
+        #     print("save model...")
+        #     temp_acc = test_avg_acc.result()
+        #     save_path = manager.save()
+        #     print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
+        #     print("Where test acc {:1.2f} %".format(test_avg_acc.result() * 100))
+        #
+        #
+        # if tf.equal(optimizer.iterations % log_freq, 0):
+        #     print("writing logs to tensorboard")
+        #     # write train logs # with the same name for train and test write will write multiple curves into one plot
+        #     write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_acc"],
+        #                          [train_avg_loss, train_avg_acc], optimizer.iterations // log_freq)
+        #
+        #     write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_acc"],
+        #                          [test_avg_loss, test_avg_acc], optimizer.iterations // log_freq)
+        #
+        # ckpt.step.assign_add(1)
 
 
 if __name__ == '__main__':

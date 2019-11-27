@@ -229,7 +229,7 @@ if __name__ == '__main__':
         y320 =  standardization(y320)
         print("time 320 len:", time320.shape)
         print("y320 len:", len(y320))
-        print(y320)
+        # print(y320)
 
 
     #

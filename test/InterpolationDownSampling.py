@@ -38,7 +38,7 @@ def plot_time_signal(y_value, x_value, Td, axes, legendText):
     axes.set_xlim([0, Td])
     show_end = '[' + str(round(x_value[-1],3)) + ", " + str(round(y_value[-1], 3)) + ']'
     axes.annotate(show_end, xy=(x_value[-1], y_value[-1]),
-                          xytext=(x_value[-1] - 5, y_value[-1] -11),
+                          xytext=(x_value[-1] - 2, y_value[-1] -4),
                           arrowprops=dict(facecolor='black', shrink=-0.05),
                           )
     axes.set_title(legendText)

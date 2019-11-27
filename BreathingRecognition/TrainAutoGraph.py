@@ -199,6 +199,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                                                                         data_type=data_type, task_type=task_type,
                                                                         class_names=class_names)
             print(train_batch_x.shape)
+            print(type(train_batch_y))
             write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
             # print("x.shape:", train_batch_x.shape)
             # print("y.shape:", batch_y.shape)
