@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fftpack import fft,ifft
 import matplotlib
-def red_csv(full_path):
+def read_csv(full_path):
     """
     full path: full_path of csv file and
     return: raw_signal_no_mean (0 mean ) and time values
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     full_path_wave_time = os.path.join(csv_root_path, filename1)
     full_path_wave_time2 = os.path.join(csv_root_path2, filename2)
 
-    data_list, time_list = red_csv(full_path_wave_time2)
+    data_list, time_list = read_csv(full_path_wave_time2)
     print("len of data:", len(data_list))
     print("len of time:", len(time_list))
     print("time:", time_list)
@@ -157,10 +157,11 @@ if __name__ == '__main__':
 
 
     # upsample to 3200 samples with linear interpolation
-    x3200, y3200 = LinearUpsampleInterp(x=time_list, y=data_list, Td=Td, desiredN=3200)
+    dN= 320
+    x3200, y3200 = LinearUpsampleInterp(x=time_list, y=data_list, Td=Td, desiredN=dN)
     x320_3200 = EquallyDownSample(targetInput=x3200, dersiredN=320)
     y320_3200 = EquallyDownSample(targetInput=y3200, dersiredN=320)
-    plot_time_signal(y_value=y320_3200, x_value=x320_3200, Td=Td, axes=axes[3, 0], legendText=str(len(x320_3200))+" samples from 3200 samples for " + str(bpm) +" bpm")
+    plot_time_signal(y_value=y320_3200, x_value=x320_3200, Td=Td, axes=axes[3, 0], legendText=str(len(x320_3200))+" samples from " + str(dN) + " samples for " + str(bpm) +" bpm")
     plot_fft(y_value=y320_3200, Td=x320_3200[-1], axes_list=[axes[3, 1], axes[3, 2], axes[3, 3]], half_plot=True,
              zoom=True)
     print("x320:", x320_32000)
