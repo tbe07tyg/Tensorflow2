@@ -12,7 +12,7 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import img_to_array, load_img
 import matplotlib.pyplot as plt
 from tensorflow.keras.utils import to_categorical
-from ModelZoo import LstmReg, Lstm
+from ModelZoo import LstmReg, Lstm, Lstm_signal_record_regression
 
 
 
@@ -128,6 +128,8 @@ test_avg_acc = tf.keras.metrics.Mean(name='test_avg_acc')
 
 @tf.function
 def train_step(input_feature, labels, model, optimizer):
+    acc_object = tf.keras.metrics.mae()
+    loss_object = tf.keras.losses.mean_squared_error()
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
         loss = loss_object(labels, predictions)
@@ -141,6 +143,8 @@ def train_step(input_feature, labels, model, optimizer):
 # test model: # tf.function will build graph when loading the script
 @tf.function
 def test_step(input_feature, labels):
+    acc_object = tf.keras.metrics.mae()
+    loss_object = tf.keras.losses.mean_squared_error()
     predictions = model(input_feature)
     t_loss = loss_object(labels, predictions)
     t_acc = acc_object(labels, predictions)
@@ -176,7 +180,7 @@ def write_tb_model_graph(writer, name, step, logdir):
             profiler_outdir=logdir)
 
 def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
-    temp_acc =0
+    temp_mae =0
     ckpt.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
         print("Restored from {}".format(manager.latest_checkpoint))
@@ -275,8 +279,8 @@ if __name__ == '__main__':
     task_type = "classification"
     my_training_pairs_path =  "my_training_pairs.csv"
 
-    tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\logs"
-    ckpt_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\ckpt"
+    tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\CoreMyCodes\\logs"
+    ckpt_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\CoreMyCodes\\ckpt"
 
     # image shape
     feature_length =2048
@@ -288,55 +292,50 @@ if __name__ == '__main__':
     print("data_length:", data.__len__())
 
     #
-    # cleaned_data = clean_data(data, seq_length=seq_length, max_frames=max_frames,
-    #                           classes=class_names)  # clean the data with only frame
-    # print("cleaned_data:", cleaned_data)
-    # print("len of cleaned data:", len(cleaned_data))
-    # print("cleaned # of data:", len(data) - len(cleaned_data))
+
     #
-    # train_list, test_list = split_train_test(cleaned_data)  # split train and test
-    # print("len of train:", len(train_list))
-    # print("len of test:", len(test_list))
-    # # mySeqGen_Train = mySeqFeatureRegGenerator(batch_size=batch_size, train_test="train", data_type=data_type, train_list=train_list,
-    # #                                           test_list=test_list, task_type="classification")
-    # # dataset ---------------------------------------->
-    # # train_dataset = tf.data.Dataset.from_tensor_slices(train_list).batch(batch_size).map(lambda item: tuple(tf.py_function(get_extracted_sequence, [item], [tf.float32,])))
-    # train_dataset = tf.data.Dataset.from_tensor_slices(train_list).shuffle(10000).batch(batch_size)
-    # test_dataset = tf.data.Dataset.from_tensor_slices(test_list).shuffle(10000).batch(batch_size)
+    train_list, test_list = split_train_test(data)  # split train and test
+    print("len of train:", len(train_list))
+    print("len of test:", len(test_list))
+
+    train_dataset = tf.data.Dataset.from_tensor_slices(train_list).shuffle(10000).batch(batch_size)
+    test_dataset = tf.data.Dataset.from_tensor_slices(test_list).shuffle(10000).batch(batch_size)
+    print("train_dataset", train_dataset)
+    print("train_dataset", test_dataset)
     #
-    # # model design =====================================>
-    # num_classes = len(class_names)
+    # model design =====================================>
+
+    model = Lstm_signal_record_regression(image_shape).model()
     #
-    # model = Lstm(num_classes, image_shape).model()
-    #
-    # print(model.summary())
-    # # train optimizer and loss
-    #
-    # # define evaluation metrics
-    # optimizer = tf.keras.optimizers.Adam()
-    # acc_object = tf.keras.metrics.CategoricalAccuracy()
-    # loss_object = tf.keras.losses.CategoricalCrossentropy()
-    # ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
+    print(model.summary())
+    # train optimizer and loss
+
+    # define evaluation metrics
+    optimizer = tf.keras.optimizers.Adam()
+
+    ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
     #
     #
-    # # if log root dir does not exist, the writer will not write log files
-    # if not os.path.exists(ckpt_log_root):
-    #     os.makedirs(ckpt_log_root)
+    # if log root dir does not exist, the writer will not write log files
+    if not os.path.exists(ckpt_log_root):
+        print("build ckpt folder")
+        os.makedirs(ckpt_log_root)
+
+    if not os.path.exists(tb_log_root):
+        print("build tensorboard log folder")
+        os.makedirs(tb_log_root)
+    train_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'train')) # tensorboard --logdir /tmp/summaries
+    test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
+    manager = tf.train.CheckpointManager(ckpt, ckpt_log_root, max_to_keep=3)
     #
-    # if not os.path.exists(tb_log_root):
-    #     os.makedirs(tb_log_root)
-    # train_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'train')) # tensorboard --logdir /tmp/summaries
-    # test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
-    # manager = tf.train.CheckpointManager(ckpt, ckpt_log_root, max_to_keep=3)
-    #
-    # # train loop:
-    # EPOCHS = 1000
-    # train_total_Batches= math.ceil(len(train_list)/batch_size)
-    # test_total_Batches =  math.ceil(len(test_list)/batch_size)
-    # log_freq = train_total_Batches
-    # ckpt_freq  = 1 # 1 epoch
-    #
-    # train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)
+    # train loop:
+    EPOCHS = 1000
+    train_total_Batches= math.ceil(len(train_list)/batch_size)
+    test_total_Batches =  math.ceil(len(test_list)/batch_size)
+    log_freq = train_total_Batches
+    ckpt_freq  = 1 # 1 epoch
+
+    train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)
     #
     #
     #

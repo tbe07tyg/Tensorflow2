@@ -11,8 +11,14 @@ extract all 101 classes. For instance, set class_limit = 8 to just
 extract features for the first 8 (alphabetical) classes in the dataset.
 Then set the same number when training models.
 """
+from math import sqrt
+
 import numpy as np
 import os.path
+
+from pandas import Series
+from sklearn.preprocessing import StandardScaler
+
 from extractor import Extractor
 from tqdm import tqdm
 import csv
@@ -134,6 +140,37 @@ class DataSet():
 
         return xnew, f(xnew)
 
+def standardization(x):
+    """
+    mean = sum(x) / count(x)
+    standard_deviation = sqrt( sum( (x - mean)^2 ) / count(x))
+    y = (x - mean) / standard_deviation
+
+    return y
+
+
+    """
+    # define contrived series
+    series =  Series(x)
+    print("prepare series for standardization:", series)
+    values =  series.values
+    values =  values.reshape((len(values),1))
+    # train the normalization
+    scaler = StandardScaler()
+    scaler = scaler.fit(values)
+    print('Mean: %f, StandardDeviation: %f' % (scaler.mean_, sqrt(scaler.var_)))
+    # normalize the dataset and print
+    standardized = scaler.transform(values)
+    print("initial standized shape", standardized.shape)
+    #
+    standardized = standardized.reshape(1, standardized.shape[0]).tolist()[0]
+    print(standardized)
+
+    return standardized
+
+
+
+
 
 if __name__ == '__main__':
 
@@ -188,8 +225,11 @@ if __name__ == '__main__':
         # down sample the csv records
 
         time320, y320 = data.UP_Down_interp1d(x=time_value, y=raw_signal_no_mean, Td=19.98, desiredN=desiredN)
+        # standardized y
+        y320 =  standardization(y320)
         print("time 320 len:", time320.shape)
-        print("y320 len:", y320.shape)
+        print("y320 len:", len(y320))
+        print(y320)
 
 
     #
@@ -239,6 +279,7 @@ if __name__ == '__main__':
             writer = csv.writer(fout)
             writer.writerows(training_pair_file)
     else:
+        print("deleting files")
         os.remove('my_training_pairs.csv')
         with open('my_training_pairs.csv', 'w', newline="") as fout:
             writer = csv.writer(fout)

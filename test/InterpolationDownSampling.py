@@ -1,9 +1,13 @@
 import os
+from math import sqrt
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fftpack import fft,ifft
 import matplotlib
+from sklearn.preprocessing import StandardScaler
+from pandas import Series
 def read_csv(full_path):
     """
     full path: full_path of csv file and
@@ -98,6 +102,35 @@ def LinearUpsampleInterp(x, y, Td, desiredN):
 
     return xnew, f(xnew)
 
+def standardization(x):
+    """
+    mean = sum(x) / count(x)
+    standard_deviation = sqrt( sum( (x - mean)^2 ) / count(x))
+    y = (x - mean) / standard_deviation
+
+    return y
+
+
+    """
+    # define contrived series
+    series =  Series(x)
+    print("prepare series for standardization:", series)
+    values =  series.values
+    values =  values.reshape((len(values),1))
+    # train the normalization
+    scaler = StandardScaler()
+    scaler = scaler.fit(values)
+    print('Mean: %f, StandardDeviation: %f' % (scaler.mean_, sqrt(scaler.var_)))
+    # normalize the dataset and print
+    standardized = scaler.transform(values)
+    print("initial standized shape", standardized.shape)
+    #
+    standardized = standardized.reshape(1, standardized.shape[0]).tolist()[0]
+    print(standardized)
+
+    return standardized
+
+
 def EquallyDownSample(targetInput, dersiredN):
     """
     targetInput: the signal is going to be downsampled
@@ -144,8 +177,11 @@ if __name__ == '__main__':
     print("y3200:", y32000)
     print("time 3200 shape:", x32000.shape)
     # plot upsampled signal
-    plot_time_signal(y_value=y32000, x_value=x32000, Td=Td, axes=axes[1, 0], legendText=str(len(x32000))+" samples for " + str(bpm) +" bpm")
-    plot_fft(y_value=y32000, Td=x32000[-1], axes_list=[axes[1, 1], axes[1, 2], axes[1, 3]], half_plot=True,
+
+    # standardization
+    standardized_y = standardization(data_list)
+    plot_time_signal(y_value=standardized_y, x_value=time_list, Td=Td, axes=axes[1, 0], legendText= "standardized for" + str(bpm) +" bpm")
+    plot_fft(y_value=standardized_y, Td=time_list[-1], axes_list=[axes[1, 1], axes[1, 2], axes[1, 3]], half_plot=True,
              zoom=True)
 
     # then downsample to desired len

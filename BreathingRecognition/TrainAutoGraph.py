@@ -311,6 +311,7 @@ if __name__ == '__main__':
     #                                           test_list=test_list, task_type="classification")
     # dataset ---------------------------------------->
     # train_dataset = tf.data.Dataset.from_tensor_slices(train_list).batch(batch_size).map(lambda item: tuple(tf.py_function(get_extracted_sequence, [item], [tf.float32,])))
+    print(train_list)
     train_dataset = tf.data.Dataset.from_tensor_slices(train_list).shuffle(10000).batch(batch_size)
     test_dataset = tf.data.Dataset.from_tensor_slices(test_list).shuffle(10000).batch(batch_size)
 
