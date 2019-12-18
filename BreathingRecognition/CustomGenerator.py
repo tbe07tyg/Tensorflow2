@@ -311,3 +311,90 @@ class mySeqFeatureRegGenerator(Sequence):
         """
         return re.findall(r"\d+\.?\d*", target_str)[0]
 
+
+class GetBatchGenerator(Sequence):
+    def __init__(self, data_list, batch_size, classNames=None):
+        self.used_data = data_list
+        self.batch_size =  batch_size
+        self.classNames =  classNames
+        self.indexes = np.arange(len(self.used_data))
+
+    def __len__(self):
+        return math.ceil(len(self.used_data) / self.batch_size)
+
+    def __getitem__(self, idx):
+        # indexes = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_data = self.get_extracted_batch_sequence(idx)
+        return batch_data
+
+    def on_epoch_end(self):
+        # after each epoch we neeed to renew the global entire self.indexes , not local index in getitem func. and shuffle
+        # the global self.indexes so that we can each epoch to shuffle our entire dataset.
+        self.indexes = np.arange(len(self.used_data))
+        if self.shuffle == True:
+            np.random.shuffle(self.indexes)
+
+    def get_extracted_batch_sequence(self, idx, class_names=None):
+        """Get the saved extracted features."""
+        # fetch the batch of data by indexes
+        indexes = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
+
+        # Find the batch list of records
+        batch_list = [self.used_data[k] for k in indexes]
+
+        batch_x_list = []
+        batch_y_list = []
+        # print("batch_list", batch_list)
+        # print("batch_list len:", len(batch_list))
+
+        for sample in batch_list:
+            path = sample[2] + '.npy'
+
+            if os.path.isfile(path):
+                batch_x_list.append(np.load(path))
+            else:
+                raise Exception("please check the npy path")
+
+            if not self.classNames == None:
+                batch_y_list.append(self.get_class_one_hot(class_names=class_names, class_str=sample[1]))
+                # print(y)
+            else:
+                # print("here")
+                # print(sample[1])
+                batch_y_list.append(float(self.get_target_value_regression(sample[1])))
+                # print(y)
+
+            # print("batch_x_list",batch_x_list, len(batch_x_list))
+            # print("batch_y_list",batch_y_list, len(batch_y_list))
+        print("batch_x_len",len(batch_x_list))
+        print("batch_y_len", len(batch_y_list))
+        return np.array(batch_x_list), np.array(batch_y_list)
+
+
+
+
+
+
+
+    def get_class_one_hot(self, class_names, class_str):
+        """Given a class as a string, return its number in the classes
+        list. This lets us encode and one-hot it for training."""
+        # Encode it first.
+        label_encoded = class_names.index(class_str)
+
+        # Now one-hot it.
+        label_hot = to_categorical(label_encoded, len(class_names))
+
+        assert len(label_hot) == len(class_names)
+
+        return label_hot
+
+
+    def get_target_value_regression(self,target_str):
+        """
+        Given a target breathing per minute string value which contains value. Thie extract number in the string only
+        for regression training process
+        :param target_str: bpm str
+        :return:  number in target str
+        """
+        return re.findall(r"\d+\.?\d*", target_str)[0]

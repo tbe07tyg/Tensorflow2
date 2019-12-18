@@ -11,7 +11,10 @@ import glob
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import img_to_array, load_img
 import matplotlib.pyplot as plt
+from tensorflow import keras
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import TensorBoard, LearningRateScheduler
+from CustomGenerator import GetBatchGenerator
 from ModelZoo import LstmReg, Lstm, Lstm_signal_record_regression
 
 
@@ -93,6 +96,8 @@ def get_extracted_batch_sequence(batch_records, class_names=None):
     """Get the saved extracted features."""
     batch_x_list = []
     batch_y_list = []
+    print("ha")
+    print("batch_records", batch_records)
     # print("batch sample", batch_records)
     for each in batch_records.numpy():
         # batch record is as formart: [train or test, target value, npy path without suffix, # of frames]
@@ -177,7 +182,7 @@ def write_tb_model_graph(writer, name, step, logdir):
             profiler_outdir=logdir)
 
 def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
-    temp_mae =0
+    temp_mae = 100 # mae the less the better
     ckpt.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
         print("Restored from {}".format(manager.latest_checkpoint))
@@ -188,14 +193,15 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
     for epoch in range(EPOCHS):
 
         for (batch, each_batch) in enumerate(train_dataset):
-            # print(each_batch)
+            print("each_batch", each_batch)
+
             # load input batch features
             train_batch_x, train_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
             # print("train_batch_x.shape:", train_batch_x.shape)
             # print("train_batch_y.shape:", train_batch_y.shape)
             # print(type(train_batch_x))
             # print(type(train_batch_y))
-            write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
+            # write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
 
 
             train_step(train_batch_x, train_batch_y, model, optimizer)
@@ -211,7 +217,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
             if batch==0:
                 print("write model graph")
-                tf.summary.trace_on(graph=True, profiler=True)
+                tf.summary.trace_on(graph=True, profiler=False)
                 write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
         for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
             # load input batch features
@@ -224,13 +230,13 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                                         test_batch + 1,
                                         test_total_Batches,
                                         train_avg_loss.result(),
-                                        train_avg_acc.result() * 100))
+                                        train_avg_acc.result()))
         template = 'Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg MAE: {}'
         print(template.format(int(ckpt.step),
                               train_avg_loss.result(),
-                              train_avg_acc.result() * 100,
+                              train_avg_acc.result() ,
                               test_avg_loss.result(),
-                              test_avg_acc.result() * 100))
+                              test_avg_acc.result()))
         #
 
         #
@@ -253,6 +259,34 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
         ckpt.step.assign_add(1)
 
+
+#  Sequence generator
+
+
+
+def schedule_train(model, EPOCHS,  sd_tb_log_path):
+    opt = tf.keras.optimizers.Adam(lr=1e-8)  # for learning rate schedular
+    lr_schedule = LearningRateScheduler(
+        lambda epoch: 1e-8 * 10 ** (epoch / 20))
+
+    tb_callback = TensorBoard(log_dir=sd_tb_log_path, update_freq='epoch', profile_batch=0)
+    calls = [lr_schedule, tb_callback]
+    model.compile(optimizer=opt,
+                  loss="mse",
+                  metrics=["mse", "mae"])
+
+    # generator
+    train_Generator = GetBatchGenerator(data_list=train_list, batch_size=batch_size, classNames=None)
+    test_Generator =  GetBatchGenerator(data_list=test_list, batch_size=batch_size, classNames=None)
+    # fit the custom generator
+    history = model.fit_generator(generator=train_Generator,
+                                  validation_data=test_Generator,
+                                  use_multiprocessing=True,
+                                  callbacks=calls,
+                                  workers=1,
+                                  epochs=EPOCHS,
+                                  shuffle=True)
+    return history
 
 if __name__ == '__main__':
     # hyper parramters
@@ -285,7 +319,7 @@ if __name__ == '__main__':
     train_list, test_list = split_train_test(data)  # split train and test
     print("len of train:", len(train_list))
     print("len of test:", len(test_list))
-
+    print("train_list:", train_list)  # train_list: [['train', '-0.6708105123895995', 'I:\\dataset\\BreathingData_16_29\\sequences\\Rec20191108_014327_21.13-40-features_0-40', '320'], ['train', '-0.520847926910924', 'I:\\dataset\\BreathingData_16_29\\sequences\\Rec20191108_014327_21.13-40-features_1-41', '320'],
     train_dataset = tf.data.Dataset.from_tensor_slices(train_list).shuffle(10000).batch(batch_size)
     test_dataset = tf.data.Dataset.from_tensor_slices(test_list).shuffle(10000).batch(batch_size)
     print("train_dataset", train_dataset)
@@ -323,7 +357,20 @@ if __name__ == '__main__':
     log_freq = train_total_Batches
     ckpt_freq  = 1 # 1 epoch
 
-    train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)
+    schedule = True  # decided whether needs to schedule the learning rate to find the reasonable learning rate
+    if schedule == True:
+        EPOCHS = 100
+        sd_tb_log_path = "..\\sheduler_tb_path"
+        if not os.path.exists(sd_tb_log_path):
+            print("build schedule_train_tensorboard folder")
+            os.makedirs(sd_tb_log_path)
+        history = schedule_train(model=model, EPOCHS=EPOCHS, sd_tb_log_path=sd_tb_log_path)
+
+        plt.semilogx(history.history["lr"], history.history["loss"])
+        plt.axis([1e-8, 1e-4, 0, 30])
+        plt.savefig('schedule_lr.png')  #
+    else:
+        train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)
     #
     #
     #
