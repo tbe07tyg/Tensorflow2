@@ -44,7 +44,7 @@ class mySeqFeatureRegGenerator(Sequence):
         print("Loading %d samples into memory for %sing." % (len(self.used_data), train_test))
         self.indexes = np.arange(len(self.used_data))
 
-
+        self.counter = 0
     def __len__(self):
         return math.ceil(len(self.used_data) / self.batch_size)
 
@@ -171,7 +171,8 @@ class mySeqFeatureRegGenerator(Sequence):
 
         # fetch the batch of data by indexes
         indexes = self.indexes[idx * self.batch_size:(idx + 1) * self.batch_size]
-
+        self.counter +=1
+        print(self.counter)
         # Find the batch list of records
         batch_list = [self.used_data[k] for k in indexes]
         # print(len(batch))
@@ -207,7 +208,7 @@ class mySeqFeatureRegGenerator(Sequence):
                 pass
             # print("X:", len(X))
             # count += 1
-        # print(np.array(X).shape)
+        print(np.array(X).shape)
         return np.array(X), np.array(y)
 
     # def build_image_sequence(self, frames):
@@ -318,6 +319,7 @@ class GetBatchGenerator(Sequence):
         self.batch_size =  batch_size
         self.classNames =  classNames
         self.indexes = np.arange(len(self.used_data))
+        self.counter = 0
 
     def __len__(self):
         return math.ceil(len(self.used_data) / self.batch_size)
@@ -346,10 +348,11 @@ class GetBatchGenerator(Sequence):
         batch_y_list = []
         # print("batch_list", batch_list)
         # print("batch_list len:", len(batch_list))
-
+        self.counter +=1
+        print(self.counter)
         for sample in batch_list:
             path = sample[2] + '.npy'
-
+            print(path)
             if os.path.isfile(path):
                 batch_x_list.append(np.load(path))
             else:
@@ -366,8 +369,11 @@ class GetBatchGenerator(Sequence):
 
             # print("batch_x_list",batch_x_list, len(batch_x_list))
             # print("batch_y_list",batch_y_list, len(batch_y_list))
-        print("batch_x_len",len(batch_x_list))
-        print("batch_y_len", len(batch_y_list))
+        # print("batch_x_len",len(batch_x_list))
+        # print("batch_y_len", len(batch_y_list))
+        print(np.array(batch_x_list).shape)
+        print(np.array(batch_y_list).shape)
+        # print(np.array(batch_x_list))
         return np.array(batch_x_list), np.array(batch_y_list)
 
 

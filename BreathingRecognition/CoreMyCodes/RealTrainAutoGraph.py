@@ -283,7 +283,6 @@ def schedule_train(model, EPOCHS,  sd_tb_log_path):
                                   validation_data=test_Generator,
                                   use_multiprocessing=True,
                                   callbacks=calls,
-                                  workers=1,
                                   epochs=EPOCHS,
                                   shuffle=True)
     return history
