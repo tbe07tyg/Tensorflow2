@@ -43,7 +43,7 @@ class mySeqFeatureRegGenerator(Sequence):
         self.used_data = train if self.train_test == 'train' else test
         print("Loading %d samples into memory for %sing." % (len(self.used_data), train_test))
         self.indexes = np.arange(len(self.used_data))
-
+        print("indexes", len(self.indexes))
         self.counter = 0
     def __len__(self):
         return math.ceil(len(self.used_data) / self.batch_size)
@@ -162,7 +162,7 @@ class mySeqFeatureRegGenerator(Sequence):
 
 
 
-    def frame_generator(self, idx):
+    def   frame_generator(self, idx):
         """Return a generator that we can use to train on. There are
         a couple different things we can return:
 
@@ -314,12 +314,13 @@ class mySeqFeatureRegGenerator(Sequence):
 
 
 class GetBatchGenerator(Sequence):
-    def __init__(self, data_list, batch_size, classNames=None):
+    def __init__(self, data_list, batch_size, shuffle=True, classNames=None):
         self.used_data = data_list
         self.batch_size =  batch_size
         self.classNames =  classNames
         self.indexes = np.arange(len(self.used_data))
         self.counter = 0
+        self.shuffle =shuffle
 
     def __len__(self):
         return math.ceil(len(self.used_data) / self.batch_size)
@@ -352,7 +353,7 @@ class GetBatchGenerator(Sequence):
         print(self.counter)
         for sample in batch_list:
             path = sample[2] + '.npy'
-            print(path)
+            # print(path)
             if os.path.isfile(path):
                 batch_x_list.append(np.load(path))
             else:

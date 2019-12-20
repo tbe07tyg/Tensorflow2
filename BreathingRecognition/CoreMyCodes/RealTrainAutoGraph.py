@@ -16,9 +16,12 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import TensorBoard, LearningRateScheduler
 from CustomGenerator import GetBatchGenerator
 from ModelZoo import LstmReg, Lstm, Lstm_signal_record_regression
-
-
-
+from sklearn.externals import joblib
+gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
+cpus = tf.config.experimental.list_physical_devices(device_type='CPU')
+print(gpus, cpus)
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 # load data -------------------------------------------------->
 def get_data(csv_path):
@@ -97,7 +100,7 @@ def get_extracted_batch_sequence(batch_records, class_names=None):
     batch_x_list = []
     batch_y_list = []
     print("ha")
-    print("batch_records", batch_records)
+    # print("batch_records", batch_records)
     # print("batch sample", batch_records)
     for each in batch_records.numpy():
         # batch record is as formart: [train or test, target value, npy path without suffix, # of frames]
@@ -193,7 +196,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
     for epoch in range(EPOCHS):
 
         for (batch, each_batch) in enumerate(train_dataset):
-            print("each_batch", each_batch)
+            # print("each_batch", each_batch)
 
             # load input batch features
             train_batch_x, train_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
@@ -265,29 +268,35 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
 
 def schedule_train(model, EPOCHS,  sd_tb_log_path):
+
     opt = tf.keras.optimizers.Adam(lr=1e-8)  # for learning rate schedular
     lr_schedule = LearningRateScheduler(
         lambda epoch: 1e-8 * 10 ** (epoch / 20))
 
     tb_callback = TensorBoard(log_dir=sd_tb_log_path, update_freq='epoch', profile_batch=0)
     calls = [lr_schedule, tb_callback]
+
+    # generator
+    train_Generator = GetBatchGenerator(data_list=train_list, batch_size=batch_size, classNames=None)
+    test_Generator = GetBatchGenerator(data_list=test_list, batch_size=batch_size, classNames=None)
     model.compile(optimizer=opt,
                   loss="mse",
                   metrics=["mse", "mae"])
 
-    # generator
-    train_Generator = GetBatchGenerator(data_list=train_list, batch_size=batch_size, classNames=None)
-    test_Generator =  GetBatchGenerator(data_list=test_list, batch_size=batch_size, classNames=None)
+
     # fit the custom generator
     history = model.fit_generator(generator=train_Generator,
                                   validation_data=test_Generator,
                                   use_multiprocessing=True,
                                   callbacks=calls,
                                   epochs=EPOCHS,
+                                  workers=4,
                                   shuffle=True)
     return history
 
 if __name__ == '__main__':
+
+
     # hyper parramters
     class_limit = None  # int, can be 1-101 or None
     batch_size = 32
@@ -309,20 +318,20 @@ if __name__ == '__main__':
 
 
     data = get_data(my_training_pairs_path)  # get full data list
-    print("data：", data)
+    # print("data：", data)
     print("data_length:", data.__len__())
 
     #
 
     #
     train_list, test_list = split_train_test(data)  # split train and test
-    print("len of train:", len(train_list))
-    print("len of test:", len(test_list))
-    print("train_list:", train_list)  # train_list: [['train', '-0.6708105123895995', 'I:\\dataset\\BreathingData_16_29\\sequences\\Rec20191108_014327_21.13-40-features_0-40', '320'], ['train', '-0.520847926910924', 'I:\\dataset\\BreathingData_16_29\\sequences\\Rec20191108_014327_21.13-40-features_1-41', '320'],
+    print("len of train samples:", len(train_list))
+    print("len of test samples:", len(test_list))
+    # print("train_list:", train_list)  # train_list: [['train', '-0.6708105123895995', 'I:\\dataset\\BreathingData_16_29\\sequences\\Rec20191108_014327_21.13-40-features_0-40', '320'], ['train', '-0.520847926910924', 'I:\\dataset\\BreathingData_16_29\\sequences\\Rec20191108_014327_21.13-40-features_1-41', '320'],
     train_dataset = tf.data.Dataset.from_tensor_slices(train_list).shuffle(10000).batch(batch_size)
     test_dataset = tf.data.Dataset.from_tensor_slices(test_list).shuffle(10000).batch(batch_size)
-    print("train_dataset", train_dataset)
-    print("train_dataset", test_dataset)
+    # print("train_dataset", train_dataset)
+    # print("train_dataset", test_dataset)
     #
     # model design =====================================>
 
@@ -356,7 +365,8 @@ if __name__ == '__main__':
     log_freq = train_total_Batches
     ckpt_freq  = 1 # 1 epoch
 
-    schedule = True  # decided whether needs to schedule the learning rate to find the reasonable learning rate
+    # schedule = False  # decided whether needs to schedule the learning rate to find the reasonable learning rate
+    schedule = True
     if schedule == True:
         EPOCHS = 100
         sd_tb_log_path = "..\\sheduler_tb_path"
@@ -365,8 +375,14 @@ if __name__ == '__main__':
             os.makedirs(sd_tb_log_path)
         history = schedule_train(model=model, EPOCHS=EPOCHS, sd_tb_log_path=sd_tb_log_path)
 
+        # save history in disk for letter use
+        # save history
+        joblib.dump(history, 'history.pkl')
+        # # load history
+        #         # history = joblib.load('history.pkl')
+
         plt.semilogx(history.history["lr"], history.history["loss"])
-        plt.axis([1e-8, 1e-4, 0, 30])
+        plt.axis([1e-8, 1e-4, 0.2, 0.4])
         plt.savefig('schedule_lr.png')  #
     else:
         train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)
