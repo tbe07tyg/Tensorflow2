@@ -49,16 +49,16 @@ def get_classes(data, class_limit):
     else:
         return classes
 
-def clean_data(data, seq_length, max_frames, classes):
-    """Limit samples to greater than the sequence length and fewer
-    than N frames. Also limit it to classes we want to use."""
-    data_clean = []
-    for item in data:
-        if int(item[3]) >= seq_length and int(item[3]) <= max_frames \
-                and item[1] in classes:
-            data_clean.append(item)
-
-    return data_clean
+# def clean_data(data, seq_length, max_frames, classes):
+#     """Limit samples to greater than the sequence length and fewer
+#     than N frames. Also limit it to classes we want to use."""
+#     data_clean = []
+#     for item in data:
+#         if int(item[3]) >= seq_length and int(item[3]) <= max_frames \
+#                 and item[1] in classes:
+#             data_clean.append(item)
+#
+#     return data_clean
 
 def split_train_test(data):
     """Split the data into train and test groups."""
@@ -300,11 +300,11 @@ if __name__ == '__main__':
     print("classNames:", class_names)
     print("len of classes:", len(class_names))
 
-    cleaned_data = clean_data(data, seq_length=seq_length, max_frames=max_frames,
-                              classes=class_names)  # clean the data with only frame
-    print("cleaned_data:", cleaned_data)
-    print("len of cleaned data:", len(cleaned_data))
-    print("cleaned # of data:", len(data) - len(cleaned_data))
+    # cleaned_data = clean_data(data, seq_length=seq_length, max_frames=max_frames,
+    #                           classes=class_names)  # clean the data with only frame
+    # print("cleaned_data:", cleaned_data)
+    # print("len of cleaned data:", len(cleaned_data))
+    # print("cleaned # of data:", len(data) - len(cleaned_data))
 
     train_list, test_list = split_train_test(cleaned_data)  # split train and test
     print("len of train:", len(train_list))
@@ -320,7 +320,7 @@ if __name__ == '__main__':
     # model design =====================================>
     num_classes = len(class_names)
 
-    model = Lstm(num_classes, image_shape).model()
+    model = LstmReg(image_shape).model()
 
     print(model.summary())
     # train optimizer and loss
