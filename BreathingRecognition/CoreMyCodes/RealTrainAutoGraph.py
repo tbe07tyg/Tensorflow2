@@ -255,8 +255,8 @@ if __name__ == '__main__':
     task_type = "classification"
     my_training_pairs_path =  "my_training_pairs.csv"
 
-    tb_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\CoreMyCodes\\logs"
-    ckpt_log_root = "I:\\DeepLearning\\TensorflowV2\\BreathingRecognition\\CoreMyCodes\\ckpt"
+    tb_log_root = "\\logs"
+    ckpt_log_root = "\\ckpt"
 
     # image shape
     feature_length =2048
