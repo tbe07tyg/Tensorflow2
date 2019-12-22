@@ -247,7 +247,7 @@ if __name__ == '__main__':
     class_limit = None  # int, can be 1-101 or None
     batch_size = 32
 
-    lr = 2e-6
+    lr = 5e-6
     model_type = 'lstm'
     seq_length = 40
     max_frames = 300
@@ -287,7 +287,7 @@ if __name__ == '__main__':
     # train optimizer and loss
 
     # define evaluation metrics
-    optimizer = tf.keras.optimizers.Adam(5e-5)
+    optimizer = tf.keras.optimizers.Adam(lr)
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
     #
