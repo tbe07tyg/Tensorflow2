@@ -32,34 +32,6 @@ def get_data(csv_path):
 
     return data
 
-# get classes
-def get_classes(data, class_limit):
-    """Extract the classes from our data. If we want to limit them,
-    only return the classes we need."""
-    classes = []
-    for item in data:
-        if item[1] not in classes:
-            classes.append(item[1])
-
-    # Sort them.
-    classes = sorted(classes)
-
-    # Return.
-    if class_limit is not None:
-        return classes[:class_limit]
-    else:
-        return classes
-
-def clean_data(data, seq_length, max_frames, classes):
-    """Limit samples to greater than the sequence length and fewer
-    than N frames. Also limit it to classes we want to use."""
-    data_clean = []
-    for item in data:
-        if int(item[3]) >= seq_length and int(item[3]) <= max_frames \
-                and item[1] in classes:
-            data_clean.append(item)
-
-    return data_clean
 
 def split_train_test(data):
     """Split the data into train and test groups."""
@@ -215,7 +187,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                                         batch + 1,
                                         train_total_Batches,
                                         train_avg_loss.result(),
-                                        train_avg_acc.result() * 100))
+                                        train_avg_acc.result()))
 
 
             if batch==0:
@@ -248,7 +220,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
             temp_mae = test_avg_acc.result()
             save_path = manager.save()
             print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
-            print("Where test acc {:1.2f} %".format(test_avg_acc.result() * 100))
+            print("Where test acc {:1.2f} %".format(test_avg_acc.result()))
 
 
         if tf.equal(optimizer.iterations % log_freq, 0):
@@ -267,32 +239,6 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
 
 
-def schedule_train(model, EPOCHS,  sd_tb_log_path):
-
-    opt = tf.keras.optimizers.Adam(lr=1e-8)  # for learning rate schedular
-    lr_schedule = LearningRateScheduler(
-        lambda epoch: 1e-8 * 10 ** (epoch / 20))
-
-    tb_callback = TensorBoard(log_dir=sd_tb_log_path, update_freq='epoch', profile_batch=0)
-    calls = [lr_schedule, tb_callback]
-
-    # generator
-    train_Generator = GetBatchGenerator(data_list=train_list, batch_size=batch_size, classNames=None)
-    test_Generator = GetBatchGenerator(data_list=test_list, batch_size=batch_size, classNames=None)
-    model.compile(optimizer=opt,
-                  loss="mse",
-                  metrics=["mse", "mae"])
-
-
-    # fit the custom generator
-    history = model.fit_generator(generator=train_Generator,
-                                  validation_data=test_Generator,
-                                  use_multiprocessing=True,
-                                  callbacks=calls,
-                                  epochs=EPOCHS,
-                                  workers=4,
-                                  shuffle=True)
-    return history
 
 if __name__ == '__main__':
 
@@ -341,7 +287,7 @@ if __name__ == '__main__':
     # train optimizer and loss
 
     # define evaluation metrics
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = tf.keras.optimizers.Adam(5e-5)
 
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
     #
@@ -365,27 +311,10 @@ if __name__ == '__main__':
     log_freq = train_total_Batches
     ckpt_freq  = 1 # 1 epoch
 
-    # schedule = False  # decided whether needs to schedule the learning rate to find the reasonable learning rate
-    schedule = True
-    if schedule == True:
-        EPOCHS = 100
-        sd_tb_log_path = "..\\sheduler_tb_path"
-        if not os.path.exists(sd_tb_log_path):
-            print("build schedule_train_tensorboard folder")
-            os.makedirs(sd_tb_log_path)
-        history = schedule_train(model=model, EPOCHS=EPOCHS, sd_tb_log_path=sd_tb_log_path)
 
-        # save history in disk for letter use
-        # save history
-        joblib.dump(history, 'history.pkl')
-        # # load history
-        #         # history = joblib.load('history.pkl')
 
-        plt.semilogx(history.history["lr"], history.history["loss"])
-        plt.axis([1e-8, 1e-4, 0.2, 0.4])
-        plt.savefig('schedule_lr.png')  #
-    else:
-        train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)
+
+    train_and_checkpoint(model, manager, EPOCHS, log_freq, ckpt_freq)
     #
     #
     #
