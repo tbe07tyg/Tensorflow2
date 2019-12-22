@@ -49,6 +49,9 @@ if __name__ == '__main__':
     # save history in disk for letter use
     # save history
     tracking_saved_dir = "./IOU_tracking_Data/"  # "Directory for test data storeage"
+    if not os.path.exists(tracking_saved_dir):
+        print("build tracking_saved_dir")
+        os.makedirs(tracking_saved_dir)
     storeTree(history, tracking_saved_dir, "history")
     # # load history
     #         # history = joblib.load('history.pkl')
