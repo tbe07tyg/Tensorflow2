@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # initialize model
     model = Lstm_signal_record_regression(image_shape).model()
 
-    EPOCHS = 1
+    EPOCHS = 100
     sd_tb_log_path = "..\\sheduler_tb_path"
     if not os.path.exists(sd_tb_log_path):
         print("build schedule_train_tensorboard folder")
