@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # initialize model
     model = Lstm_signal_record_regression(image_shape).model()
 
-    EPOCHS = 100
+    EPOCHS = 1
     sd_tb_log_path = "..\\sheduler_tb_path"
     if not os.path.exists(sd_tb_log_path):
         print("build schedule_train_tensorboard folder")
@@ -52,7 +52,9 @@ if __name__ == '__main__':
     if not os.path.exists(tracking_saved_dir):
         print("build tracking_saved_dir")
         os.makedirs(tracking_saved_dir)
-    storeTree(history, tracking_saved_dir, "history")
+
+    storeTree(history.history["lr"], tracking_saved_dir, "lr")
+    storeTree(history.history["loss"], tracking_saved_dir, "loss")
     # # load history
     #         # history = joblib.load('history.pkl')
 
