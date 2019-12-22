@@ -71,7 +71,7 @@ def get_extracted_batch_sequence(batch_records, class_names=None):
     """Get the saved extracted features."""
     batch_x_list = []
     batch_y_list = []
-    print("ha")
+
     # print("batch_records", batch_records)
     # print("batch sample", batch_records)
     for each in batch_records.numpy():
@@ -255,8 +255,8 @@ if __name__ == '__main__':
     task_type = "classification"
     my_training_pairs_path =  "my_training_pairs.csv"
 
-    tb_log_root = "\\logs"
-    ckpt_log_root = "\\ckpt"
+    tb_log_root = "logs"
+    ckpt_log_root = "ckpt"
 
     # image shape
     feature_length =2048
