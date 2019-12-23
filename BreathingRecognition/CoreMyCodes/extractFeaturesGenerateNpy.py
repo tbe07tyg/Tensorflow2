@@ -253,15 +253,20 @@ if __name__ == '__main__':
 
 
         for i in range(data.seq_length, len(sequence)):
-            one_npy_path = os.path.join(data_root, 'sequences', video[2] + '-' + str(seq_length) + \
-                                '-features'+"_" + str(i-seq_length) + "-" + str(i))  # numpy will auto-append .npy
-            print("npy path:", one_npy_path)
 
 
+
+            print("i-seq_length:", i-seq_length)
+            print("i:", i)
             one_training_features = sequence[i-seq_length:i]
             one_training_target =  y320[i]
+
             print("one_training_features", len(one_training_features))
 
+            one_npy_path = os.path.join(data_root, 'sequences', video[2] + '-' + str(seq_length) + \
+                                        '-features' + "_" + str(i - seq_length) + "-" + str(
+                i - 1)+"-"+"target"+str(i)+"_" +str(one_training_target))  # numpy will auto-append .npy
+            print("npy path:", one_npy_path)
             # training_pair_file contains rows of  each training pair as [train or test, target y]
             training_pair_file.append([video[0], str(one_training_target), one_npy_path, len(sequence)])
 

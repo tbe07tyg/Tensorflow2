@@ -159,6 +159,7 @@ def write_tb_model_graph(writer, name, step, logdir):
 def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
     temp_mae = 100 # mae the less the better
     ckpt.restore(manager.latest_checkpoint)
+    tf.summary.trace_on(graph=True, profiler=True)
     if manager.latest_checkpoint:
         print("Restored from {}".format(manager.latest_checkpoint))
     else:
@@ -192,7 +193,6 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
             if batch==0:
                 print("write model graph")
-                tf.summary.trace_on(graph=True, profiler=False)
                 write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
         for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
             # load input batch features
