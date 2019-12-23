@@ -101,9 +101,9 @@ def get_extracted_batch_sequence(batch_records, class_names=None):
 
 # evaluation -------------------------------------------->
 train_avg_loss = tf.keras.metrics.Mean(name='train_avg_loss')
-train_avg_acc = tf.keras.metrics.Mean(name='train_avg_acc')
-test_avg_loss = tf.keras.metrics.Mean(name='test_avg_loss')
-test_avg_acc = tf.keras.metrics.Mean(name='test_avg_acc')
+train_avg_metric = tf.keras.metrics.Mean(name='train_avg_acc')
+test_avg_loss = tf.keras.metrics.Mean(name='test_avg_metric')
+test_avg_metric = tf.keras.metrics.Mean(name='test_avg_metric')
 
 
 @tf.function
@@ -112,11 +112,11 @@ def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
         loss = tf.keras.losses.mean_squared_error(labels, predictions)
-        acc =  tf.keras.metrics.mae(labels, predictions)
+        mae =  tf.keras.losses.mae(labels, predictions)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     train_avg_loss(loss)
-    train_avg_acc(acc)
+    train_avg_metric(mae)
 
 
 # test model: # tf.function will build graph when loading the script
@@ -124,9 +124,9 @@ def train_step(input_feature, labels, model, optimizer):
 def test_step(input_feature, labels):
     predictions = model(input_feature)
     t_loss =  tf.keras.losses.mean_squared_error(labels, predictions)
-    t_acc = tf.keras.metrics.mae(labels, predictions)
+    t_mae = tf.keras.losses.mae(labels, predictions)
     test_avg_loss(t_loss)
-    test_avg_acc(t_acc)
+    test_avg_metric(t_mae)
 
 def write_tb_logs_scaler(writer, name_list, value_list, step):
     with writer.as_default():
@@ -158,8 +158,9 @@ def write_tb_model_graph(writer, name, step, logdir):
 
 def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
     temp_mae = 100 # mae the less the better
+
     ckpt.restore(manager.latest_checkpoint)
-    tf.summary.trace_on(graph=True, profiler=True)
+
     if manager.latest_checkpoint:
         print("Restored from {}".format(manager.latest_checkpoint))
     else:
@@ -167,7 +168,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
 
     for epoch in range(EPOCHS):
-
+        test_avg_metric_list = []
         for (batch, each_batch) in enumerate(train_dataset):
             # print("each_batch", each_batch)
 
@@ -188,11 +189,12 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                                         batch + 1,
                                         train_total_Batches,
                                         train_avg_loss.result(),
-                                        train_avg_acc.result()))
+                                        train_avg_metric.result()))
 
 
             if batch==0:
                 print("write model graph")
+                tf.summary.trace_on(graph=True, profiler=True)
                 write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
         for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
             # load input batch features
@@ -200,37 +202,38 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
 
             test_step(test_batch_x, test_batch_y)
             batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg MAE: {}'
-
+            test_avg_metric_list.append(test_avg_metric.result())
             print(batch_template.format(int(ckpt.step),
                                         test_batch + 1,
                                         test_total_Batches,
-                                        train_avg_loss.result(),
-                                        train_avg_acc.result()))
-        template = 'Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg MAE: {}'
+                                        test_avg_loss.result(),
+                                        test_avg_metric.result()))
+        test_avg_metric_e=  sum(test_avg_metric_list)/len(test_avg_metric_list)
+        template = 'Validation Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg MAE: {}'
         print(template.format(int(ckpt.step),
                               train_avg_loss.result(),
-                              train_avg_acc.result() ,
+                              train_avg_metric.result() ,
                               test_avg_loss.result(),
-                              test_avg_acc.result()))
+                              test_avg_metric_e))
         #
 
         #
-        if int(ckpt.step) % ckpt_freq == 0 and float(test_avg_acc.result().numpy()) <temp_mae:
+        if int(ckpt.step) % ckpt_freq == 0 and test_avg_metric_e <temp_mae:
             print("save model...")
-            temp_mae = test_avg_acc.result()
+            temp_mae = test_avg_metric.result()
             save_path = manager.save()
             print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
-            print("Where test acc {:1.2f} %".format(test_avg_acc.result()))
+            print("Where test mae {:1.2f} ".format(test_avg_metric_e))
 
 
         if tf.equal(optimizer.iterations % log_freq, 0):
             print("writing logs to tensorboard")
             # write train logs # with the same name for train and test write will write multiple curves into one plot
             write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_MAE"],
-                                 [train_avg_loss, train_avg_acc], optimizer.iterations // log_freq)
+                                 [train_avg_loss, train_avg_metric], optimizer.iterations // log_freq)
 
             write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_MAE"],
-                                 [test_avg_loss, test_avg_acc], optimizer.iterations // log_freq)
+                                 [test_avg_loss, test_avg_metric], optimizer.iterations // log_freq)
 
         ckpt.step.assign_add(1)
 

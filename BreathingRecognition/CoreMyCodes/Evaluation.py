@@ -226,7 +226,7 @@ def predict_for_test(test_list, model):
         # print("test features", features.shape)
         features =  np.expand_dims(features, axis=0)
         # print("expand input shape:", features.shape)
-        prediction = model(features)
+        prediction = model(features,training=False)
         count+=1
 
         predictions_list.append(prediction.numpy()[0][0])
