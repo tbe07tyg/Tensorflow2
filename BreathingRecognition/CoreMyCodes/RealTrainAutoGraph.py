@@ -209,7 +209,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
                                         test_avg_loss.result(),
                                         test_avg_metric.result()))
         test_avg_metric_e=  sum(test_avg_metric_list)/len(test_avg_metric_list)
-        template = 'Validation Epoch {}, Train Avg Loss: {}, Train Avg Accuracy: {}, Test Avg Loss: {}, Test Avg MAE: {}'
+        template = 'Validation Epoch {}, Train Avg Loss: {}, Train Avg MAE: {}, Test Avg Loss: {}, Test Avg MAE: {}'
         print(template.format(int(ckpt.step),
                               train_avg_loss.result(),
                               train_avg_metric.result() ,
