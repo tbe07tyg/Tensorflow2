@@ -5,6 +5,7 @@ import glob
 import math
 from random import shuffle
 import numpy as np
+from SublingualVein.KerasUNet.Ultis import normalize
 
 class DataGen(Sequence):
     def __init__(self, batch_size, input_image_path, image_size, name,vein_mask_path=None, tongue_mask_path=None, shuffle=True, mode="tongue_vein"):
@@ -114,7 +115,8 @@ class DataGen(Sequence):
                 # resize image_size and mask
                 one_input_image = cv2.resize(one_input_image, (self.image_size, self.image_size))
                 one_mask = cv2.resize(one_mask, (self.image_size, self.image_size))
-
+                # normlization
+                one_input_image, one_mask = normalize(one_input_image, one_mask)
 
                 X.append(one_input_image)
                 Y.append(one_mask)
