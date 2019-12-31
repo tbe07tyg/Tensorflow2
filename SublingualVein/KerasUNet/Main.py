@@ -2,6 +2,7 @@ from SublingualVein.KerasUNet.CustomGenerator import DataGen
 from SublingualVein.KerasUNet.ModelDESIGN import UNet
 from SublingualVein.KerasUNet.hyperparameters import batch_size, train_input_image_path, train_vein_mask_path, \
     train_tongue_mask_path, val_input_image_path, val_tongue_mask_path, val_vein_mask_path, epoches, image_size
+import tensorflow as tf
 from SublingualVein.KerasUNet.Ultis import display
 
 
@@ -9,7 +10,7 @@ from SublingualVein.KerasUNet.Ultis import display
 
 # Model Compile
 model = UNet()
-model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["acc"])
+model.compile(optimizer="adam", loss="binary_crossentropy", metrics=[tf.keras.metrics.MeanIoU(num_classes=2)])
 model.summary()
 
 
