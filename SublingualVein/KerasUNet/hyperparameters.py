@@ -8,5 +8,5 @@ train_tongue_mask_path = "I:\\dataset\\infaredSublingualVein\\train\\tongue_labe
 val_input_image_path = "I:\\dataset\\infaredSublingualVein\\validation\\raw_image/*"
 val_vein_mask_path = "I:\\dataset\\infaredSublingualVein\\validation\\veins_labels/*"
 val_tongue_mask_path = "I:\\dataset\\infaredSublingualVein\\validation\\tongue_labels/*"
-image_size = 128
+image_size = 512
 epoches = 100
