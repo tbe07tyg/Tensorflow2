@@ -5,7 +5,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 import os
 from SublingualVein.KerasUNet.hyperparameters import image_size
-
+import math
 print('TensorFlow', tf.__version__)
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -207,9 +207,9 @@ callbacks = [mc, tb, lr_schedule]
 
 
 model.fit(train_dataset,
-          steps_per_epoch=len(train_images) // batch_size,
-          epochs=200,
+          steps_per_epoch=math.ceil(len(train_images) / batch_size),
+          epochs=1000,
           validation_data=val_dataset,
-          validation_steps=len(val_images) // batch_size,
+          validation_steps=math.ceil(len(val_images) / batch_size),
           callbacks=callbacks)
 model.save_weights('last_epoch.h5')
