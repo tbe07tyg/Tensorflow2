@@ -22,9 +22,9 @@ def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     return c
 
 
-def UNet():
+def UNet(inChannels=3):
     f = [16, 32, 64, 128, 256]
-    inputs = keras.layers.Input((image_size, image_size, 3))
+    inputs = keras.layers.Input((image_size, image_size, inChannels))
 
     p0 = inputs
     c1, p1 = down_block(p0, f[0])  # 128 -> 64

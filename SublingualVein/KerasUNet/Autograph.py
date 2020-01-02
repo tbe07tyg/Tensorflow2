@@ -14,6 +14,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # H, W = 784, 784
 batch_size = 3
+EPOCHS = 1000
+log_freq = 1
+ckp_log_root = "/logs"
+
 
 # train_images = sorted(glob('resized_images/*'))
 # train_masks = sorted(glob('resized_masks/*'))
@@ -32,6 +36,8 @@ print(f'Found {len(train_masks)} training masks')
 
 print(f'Found {len(val_images)} validation images')
 print(f'Found {len(val_masks)} validation masks')
+
+total_num_batches_per_epoch = math.ceil(len(train_images) / batch_size)
 
 for i in range(len(train_masks)):
     print(train_images)
@@ -136,7 +142,7 @@ def preprocess_inputs(image_path, mask_path):
         image = load_bmp(image_path)  # infraed image input. there for 8 bit input
         print("load image shape:", image.shape)
         mask = load_image(mask_path, mask=True)
-        mask = tf.cast(mask > 0, dtype=tf.uint8)
+        mask = tf.cast(mask > 0, dtype=tf.float32)
 
         image, mask = random_scale(image, mask) # random resize
         image = std_norm(image)  # norm before padding and crop_pad
@@ -157,7 +163,7 @@ train_dataset = train_dataset.shuffle(1024)
 train_dataset = train_dataset.map(map_func=preprocess_inputs,
                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
 train_dataset = train_dataset.batch(batch_size=batch_size, drop_remainder=True)
-train_dataset = train_dataset.repeat()
+# train_dataset = train_dataset.repeat(1000)
 train_dataset = train_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
 val_dataset = tf.data.Dataset.from_tensor_slices((val_images, val_masks))
@@ -165,72 +171,24 @@ val_dataset = val_dataset.shuffle(512)
 val_dataset = val_dataset.map(map_func=preprocess_inputs,
                               num_parallel_calls=tf.data.experimental.AUTOTUNE)
 val_dataset = val_dataset.batch(batch_size=batch_size, drop_remainder=True)
-val_dataset = val_dataset.repeat()
+# val_dataset = val_dataset.repeat(1000)
 val_dataset = val_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
 print("train_dataset:", train_dataset)
 
+# evaluation -------------------------------------------->
+train_avg_loss = tf.keras.metrics.Mean(name='train_avg_loss')
+train_avg_metric = tf.keras.metrics.Mean(name='train_avg_metric')
+test_avg_loss = tf.keras.metrics.Mean(name='test_avg_metric')
+test_avg_metric = tf.keras.metrics.Mean(name='test_avg_metric')
+############################### above is global zone $$$$$$$$$$$$$$$$$$$$$$$$$$$
 # for x, y in train_dataset.take(1):
 #     print("image range: [%s, %s]"%(np.min(x), np.max(x)))
 #     print("mask range: [%s, %s]" % (np.min(y), np.max(y)))
 #     print("image shape:", x.shape)
 #     print("mask shape:", y.shape)
 
-
 @tf.function()
-def dice_coef(y_true, y_pred):
-    # tf.print(y_true)
-    # mask = tf.equal(y_true, 1) # because the y_true in the range [0, 1]
-    # mask = tf.logical_not(mask)
-    # y_true = tf.boolean_mask(y_true, mask)
-    # y_pred = tf.boolean_mask(y_pred, mask)
-
-    y_true_f = K.flatten(y_true)
-    y_pred = K.cast(y_pred, 'float32')
-    y_pred_f = K.cast(K.greater(K.flatten(y_pred), 0.5), 'float32')
-    intersection = y_true_f * y_pred_f
-    score = 2. * K.sum(intersection) / (K.sum(y_true_f) + K.sum(y_pred_f))
-    return score
-
-
-@tf.function()
-def loss(y_true, y_pred):
-    # mask = tf.equal(y_true, 255)
-    # mask = tf.logical_not(mask)
-    # y_true = tf.boolean_mask(y_true, mask)
-    # y_pred = tf.boolean_mask(y_pred, mask)
-    return tf.losses.binary_crossentropy(y_true, y_pred)
-
-
-strategy = tf.distribute.MirroredStrategy()
-
-with strategy.scope():
-    model = UNet(inChannels=1)
-    #TODO: Regularization loss model.add_loss(regularizer(model.layers[i].kernel))
-    model.compile(loss=loss,
-                  optimizer=tf.keras.optimizers.Adam(2e-5),
-                  metrics=['accuracy', tf.keras.metrics.MeanIoU(num_classes=2)])
-
-
-metric_tb = TensorBoard(log_dir='logs', write_graph=True, update_freq='batch')
-# write image metric for visualizing input image and masks
-# file_writer_img = tf.summary.create_file_writer('logs/img')
-
-
-# image_tb =  tf.keras.callbacks.LambdaCallback(on_batch_end=log_images)
-
-
-
-
-# image_tb =  ImageHistory(log_dir="logs/img")
-
-mc = ModelCheckpoint(filepath='top_weights.h5',
-                     monitor='val_mean_io_u', # val_dice_coef :   val + metric function name
-                     mode='max',
-                     save_best_only='True',
-                     save_weights_only='True', verbose=1)
-
-
 def learning_rate_fn(epoch):
     if epoch < 5:
         return 1e-5
@@ -241,16 +199,134 @@ def learning_rate_fn(epoch):
     elif epoch > 45:
         return 5e-6
 
+@tf.function
+def dice_coef(y_true, y_pred, smooth=1):
+  intersection = K.sum(y_true * y_pred, axis=[1,2,3])
+  union = K.sum(y_true, axis=[1,2,3]) + K.sum(y_pred, axis=[1,2,3])
+  dice = K.mean((2. * intersection + smooth)/(union + smooth), axis=0)
+  return dice
 
-lr_schedule = tf.keras.callbacks.LearningRateScheduler(learning_rate_fn)
+@tf.function
+def iou_coef(y_true, y_pred, smooth=1):
+  intersection = K.sum(K.abs(y_true * y_pred), axis=[1,2,3])
+  union = K.sum(y_true,[1,2,3])+K.sum(y_pred,[1,2,3])-intersection
+  iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
+  return iou
 
-callbacks = [mc, metric_tb, lr_schedule]
+
+@tf.function
+def train_step(input_feature, labels, model, optimizer):
+    with tf.GradientTape() as tape:
+        predictions = model(input_feature)
+        loss = tf.keras.losses.binary_crossentropy(labels, predictions)
+        dice = dice_coef(labels, predictions)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    train_avg_loss(loss)
+    train_avg_metric(dice)
+
+def train_and_checkpoint(train_dataset, model, EPOCHS, opt, ckpt=None, ckp_freq=0, manager=None):
+    temp_mae = 100 # mae the less the better
+
+    ckpt.restore(manager.latest_checkpoint)
+    #
+    if manager.latest_checkpoint:
+        print("Restored from {}".format(manager.latest_checkpoint))
+    else:
+        print("Initializing from scratch.")
 
 
-model.fit(train_dataset,
-          steps_per_epoch=math.ceil(len(train_images) / batch_size),
-          epochs=1000,
-          validation_data=val_dataset,
-          validation_steps=math.ceil(len(val_images) / batch_size),
-          callbacks=callbacks)
-model.save_weights('last_epoch.h5')
+    for epoch in range(EPOCHS):
+        # lr_epoch= epoch
+
+        test_avg_metric_list = []
+        batch_count = 0
+        for x, y in train_dataset:
+            print(x.shape)
+            print(y.shape)
+            batch_count+=1
+            # print(x.shape)
+            # print(y.shape)
+
+            train_step(x, y, model, opt)
+        #     # load input batch features
+        #     train_batch_x, train_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
+        #     # print("train_batch_x.shape:", train_batch_x.shape)
+        #     # print("train_batch_y.shape:", train_batch_y.shape)
+        #     # print(type(train_batch_x))
+        #     # print(type(train_batch_y))
+        #     # write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
+        #
+        #
+        #     train_step(train_batch_x, train_batch_y, model, optimizer)
+        # #
+            batch_template = 'Step: {} Epoch {}- Batch[{}/{}], Train Avg Loss: {}, Train Avg dice: {}'
+        # #
+            print(batch_template.format(int(ckpt.step),
+                                        epoch,
+                                        batch_count,
+                                        7,
+                                        train_avg_loss.result(),
+                                        train_avg_metric.result()))
+        #
+        #
+        #     if batch==0:
+        #         print("write model graph")
+        #         tf.summary.trace_on(graph=True, profiler=True)
+        #         write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
+        # for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
+        #     # load input batch features
+        #     test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
+        #
+        #     test_step(test_batch_x, test_batch_y)
+        #     batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg MAE: {}'
+        #     test_avg_metric_list.append(test_avg_metric.result())
+        #     print(batch_template.format(int(ckpt.step),
+        #                                 test_batch + 1,
+        #                                 test_total_Batches,
+        #                                 test_avg_loss.result(),
+        #                                 test_avg_metric.result()))
+        # test_avg_metric_e=  sum(test_avg_metric_list)/len(test_avg_metric_list)
+        # template = 'Validation Epoch {}, Train Avg Loss: {}, Train Avg MAE: {}, Test Avg Loss: {}, Test Avg MAE: {}'
+        # print(template.format(int(ckpt.step),
+        #                       train_avg_loss.result(),
+        #                       train_avg_metric.result() ,
+        #                       test_avg_loss.result(),
+        #                       test_avg_metric_e))
+        # #
+        #
+        # #
+        # if int(ckpt.step) % ckpt_freq == 0 and test_avg_metric_e <temp_mae:
+        #     print("save model...")
+        #     temp_mae = test_avg_metric.result()
+        #     save_path = manager.save()
+        #     print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
+        #     print("Where test mae {:1.2f} ".format(test_avg_metric_e))
+        #
+        #
+        # if tf.equal(optimizer.iterations % log_freq, 0):
+        #     print("writing logs to tensorboard")
+        #     # write train logs # with the same name for train and test write will write multiple curves into one plot
+        #     write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_MAE"],
+        #                          [train_avg_loss, train_avg_metric], optimizer.iterations // log_freq)
+        #
+        #     write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_MAE"],
+        #                          [test_avg_loss, test_avg_metric], optimizer.iterations // log_freq)
+
+            ckpt.step.assign_add(1)
+
+
+
+if __name__ == '__main__':
+
+    strategy = tf.distribute.MirroredStrategy()
+    # with strategy.scope():
+    model = UNet(inChannels=1)
+
+    ckpt = tf.train.Checkpoint(step=tf.Variable(1), net=model)
+    manager = tf.train.CheckpointManager(ckpt, ckp_log_root, max_to_keep=3)
+
+    # lr_epoch = tf.Variable(1)
+    lr_schedule = tf.keras.optimizers.schedules.LearningRateSchedule(learning_rate_fn)
+    opt = tf.keras.optimizers.Adam(lr_schedule)
+    train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, ckpt=ckpt, manager=manager)
