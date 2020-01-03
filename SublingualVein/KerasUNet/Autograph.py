@@ -258,7 +258,7 @@ def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
-        train_loss = tf.keras.losses.mean_absolute_error(labels, predictions)
+        train_loss = tf.keras.losses.binary_crossentropy(labels, predictions)
         dice = dice_coef(labels, predictions)
     gradients = tape.gradient(train_loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -271,7 +271,7 @@ def test_step(input_feature, labels):
     predictions = model(input_feature)
     print("prediction shape:", predictions.shape)
 
-    t_loss =  tf.keras.losses.mean_absolute_error(labels, predictions)
+    t_loss =  tf.keras.losses.binary_crossentropy(labels, predictions)
     t_dice = dice_coef(labels, predictions)
     test_avg_loss(t_loss)
     test_avg_metric(t_dice)
