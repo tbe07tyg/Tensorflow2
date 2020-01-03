@@ -136,18 +136,40 @@ def load_bmp(image_path):
 
 
 @tf.function()
-def preprocess_inputs(image_path, mask_path):
+def train_preprocess_inputs(image_path, mask_path):
     with tf.device('/cpu:0'):
         # image = load_image(image_path) # infraed image input. there for 8 bit input
-        image = load_bmp(image_path)  # infraed image input. there for 8 bit input
+        image = tf.cast(load_bmp(image_path), tf.float32)  # infraed image input. there for 8 bit input
         print("load image shape:", image.shape)
         mask = load_image(mask_path, mask=True)
         mask = tf.cast(mask > 0, dtype=tf.float32)
-
-        image, mask = random_scale(image, mask) # random resize
+        print(image)
+        # image, mask = random_scale(image, mask) # random resize
         image = std_norm(image)  # norm before padding and crop_pad
-        image, mask = pad_inputs(image, mask)  # and pad to raw size
-        image, mask = random_crop(image, mask)  #
+        # image, mask = pad_inputs(image, mask)  # and pad to raw size
+        # image, mask = random_crop(image, mask)  #
+        image, mask = random_flip(image, mask)
+        print("prepro image shape:", image.shape)
+        print("prepro mask shape:", mask.shape)
+
+        # image = image[:, :, ::-1] - tf.constant([103.939, 116.779, 123.68]) #  # 將 BGR 圖片轉為 RGB 圖片
+        # image = image[:, :, ::-1]   # # 將 BGR 圖片轉為 RGB 圖片
+        # image = image[:, :, ::-1] - tf.constant([0.0, 0.0, 0.0])  # # 將 BGR 圖片轉為 RGB 圖片
+        return image, mask
+
+@tf.function()
+def test_preprocess_inputs(image_path, mask_path):
+    with tf.device('/cpu:0'):
+        # image = load_image(image_path) # infraed image input. there for 8 bit input
+        image = tf.cast(load_bmp(image_path), tf.float32)  # infraed image input. there for 8 bit input
+        print("load image shape:", image.shape)
+        mask = load_image(mask_path, mask=True)
+        mask = tf.cast(mask > 0, dtype=tf.float32)
+        print(image)
+        # image, mask = random_scale(image, mask) # random resize
+        image = std_norm(image)  # norm before padding and crop_pad
+        # image, mask = pad_inputs(image, mask)  # and pad to raw size
+        # image, mask = random_crop(image, mask)  #
         image, mask = random_flip(image, mask)
         print("prepro image shape:", image.shape)
         print("prepro mask shape:", mask.shape)
@@ -160,7 +182,7 @@ def preprocess_inputs(image_path, mask_path):
 
 train_dataset = tf.data.Dataset.from_tensor_slices((train_images, train_masks))
 train_dataset = train_dataset.shuffle(1024)
-train_dataset = train_dataset.map(map_func=preprocess_inputs,
+train_dataset = train_dataset.map(map_func=train_preprocess_inputs,
                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
 train_dataset = train_dataset.batch(batch_size=batch_size, drop_remainder=True)
 # train_dataset = train_dataset.repeat(1000)
@@ -168,7 +190,7 @@ train_dataset = train_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
 val_dataset = tf.data.Dataset.from_tensor_slices((val_images, val_masks))
 val_dataset = val_dataset.shuffle(512)
-val_dataset = val_dataset.map(map_func=preprocess_inputs,
+val_dataset = val_dataset.map(map_func=test_preprocess_inputs,
                               num_parallel_calls=tf.data.experimental.AUTOTUNE)
 val_dataset = val_dataset.batch(batch_size=batch_size, drop_remainder=True)
 # val_dataset = val_dataset.repeat(1000)
@@ -221,6 +243,17 @@ def iou_coef(y_true, y_pred, smooth=1):
 #     # y_pred = tf.boolean_mask(y_pred, mask)
 #     return tf.losses.binary_crossentropy(y_true, y_pred)
 
+def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
+    with writer.as_default():
+        # optimizer.iterations is actually the entire counter from step 1 to step total batch
+        for i in range(len(name_list)):
+            # print(value_list[i].shape)
+            # batch_images = np.expand_dims(value_list[i], -1)
+            # print(batch_images.shape)
+            tf.summary.image(name_list[i], value_list[i], step=step, max_outputs=max_outs)
+            # value_list[i].reset_states()  # Clear accumulated values with .reset_states()
+        writer.flush()
+
 @tf.function
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
@@ -232,7 +265,23 @@ def train_step(input_feature, labels, model, optimizer):
     train_avg_loss(train_loss)
     train_avg_metric(dice)
 
-def train_and_checkpoint(train_dataset, model, EPOCHS, opt, ckpt=None, ckp_freq=0, manager=None):
+@tf.function
+def test_step(input_feature, labels):
+
+    predictions = model(input_feature)
+    print("prediction shape:", predictions.shape)
+
+    t_loss =  tf.keras.losses.mean_absolute_error(labels, predictions)
+    t_dice = dice_coef(labels, predictions)
+    test_avg_loss(t_loss)
+    test_avg_metric(t_dice)
+
+    return predictions
+
+
+
+def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
+                         train_summary_writer, test_summary_writer, ckpt=None, ckp_freq=0, manager=None):
     temp_mae = 100 # mae the less the better
 
     ckpt.restore(manager.latest_checkpoint)
@@ -245,28 +294,22 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt, ckpt=None, ckp_freq=
 
     for epoch in range(EPOCHS):
         # lr_epoch= epoch
-
+        epoch+=1
         test_avg_metric_list = []
         batch_count = 0
+        # each train epoch
         for x, y in train_dataset:
-            print(x.shape)
-            print(y.shape)
+            print("x.shape:", x.shape)
+            print("y.shape:", y.shape)
+            write_tb_logs_image(train_summary_writer, ["input_image"], [x], opt.iterations, batch_size)
+            write_tb_logs_image(train_summary_writer, ["input_target"], [y], opt.iterations, batch_size)
             batch_count+=1
             # print(x.shape)
             # print(y.shape)
 
+            # train step ---- for batch training
             train_step(x, y, model, opt)
-        #     # load input batch features
-        #     train_batch_x, train_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
-        #     # print("train_batch_x.shape:", train_batch_x.shape)
-        #     # print("train_batch_y.shape:", train_batch_y.shape)
-        #     # print(type(train_batch_x))
-        #     # print(type(train_batch_y))
-        #     # write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
-        #
-        #
-        #     train_step(train_batch_x, train_batch_y, model, optimizer)
-        # #
+
             batch_template = 'Step: {} Epoch {}- Batch[{}/{}], Train Avg Loss: {}, Train Avg dice: {}'
         # #
             print(batch_template.format(int(ckpt.step),
@@ -275,52 +318,23 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt, ckpt=None, ckp_freq=
                                         7,
                                         train_avg_loss.result(),
                                         train_avg_metric.result()))
-        #
-        #
-        #     if batch==0:
-        #         print("write model graph")
-        #         tf.summary.trace_on(graph=True, profiler=True)
-        #         write_tb_model_graph(train_summary_writer, "trainGraph", 0, tb_log_root)
-        # for (test_batch, each_batch) in enumerate(test_dataset):  # validation after one epoch training
-        #     # load input batch features
-        #     test_batch_x, test_batch_y = get_extracted_batch_sequence(batch_records=each_batch)
-        #
-        #     test_step(test_batch_x, test_batch_y)
-        #     batch_template = 'Epoch {} - Batch[{}/{}], test Avg Loss: {}, test Avg MAE: {}'
-        #     test_avg_metric_list.append(test_avg_metric.result())
-        #     print(batch_template.format(int(ckpt.step),
-        #                                 test_batch + 1,
-        #                                 test_total_Batches,
-        #                                 test_avg_loss.result(),
-        #                                 test_avg_metric.result()))
-        # test_avg_metric_e=  sum(test_avg_metric_list)/len(test_avg_metric_list)
-        # template = 'Validation Epoch {}, Train Avg Loss: {}, Train Avg MAE: {}, Test Avg Loss: {}, Test Avg MAE: {}'
-        # print(template.format(int(ckpt.step),
-        #                       train_avg_loss.result(),
-        #                       train_avg_metric.result() ,
-        #                       test_avg_loss.result(),
-        #                       test_avg_metric_e))
-        # #
-        #
-        # #
-        # if int(ckpt.step) % ckpt_freq == 0 and test_avg_metric_e <temp_mae:
-        #     print("save model...")
-        #     temp_mae = test_avg_metric.result()
-        #     save_path = manager.save()
-        #     print("Saved checkpoint for epoch {}: {}".format(int(ckpt.step), save_path))
-        #     print("Where test mae {:1.2f} ".format(test_avg_metric_e))
-        #
-        #
-        # if tf.equal(optimizer.iterations % log_freq, 0):
-        #     print("writing logs to tensorboard")
-        #     # write train logs # with the same name for train and test write will write multiple curves into one plot
-        #     write_tb_logs_scaler(train_summary_writer, ["avg_loss", "avg_MAE"],
-        #                          [train_avg_loss, train_avg_metric], optimizer.iterations // log_freq)
-        #
-        #     write_tb_logs_scaler(test_summary_writer, ["avg_loss", "avg_MAE"],
-        #                          [test_avg_loss, test_avg_metric], optimizer.iterations // log_freq)
 
             ckpt.step.assign_add(1)
+
+        # val dataset per epoch end
+        for x_val, y_val in val_dataset:
+            print("x_val.shape:", x_val.shape)
+            print("y_val.shape:", y_val.shape)
+            predictions = test_step(x_val, y_val)
+            write_tb_logs_image(test_summary_writer, ["val_input_image"], [x_val], opt.iterations, batch_size)
+            write_tb_logs_image(test_summary_writer, ["val_input_target"], [y_val], opt.iterations, batch_size)
+            write_tb_logs_image(test_summary_writer, ["predictions"], [predictions], opt.iterations, batch_size)
+
+
+
+
+
+
 
 
 
@@ -329,9 +343,15 @@ if __name__ == '__main__':
     strategy = tf.distribute.MirroredStrategy()
     # with strategy.scope():
     model = UNet(inChannels=1)
-
+    tb_log_root = "logs"
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), net=model)
     manager = tf.train.CheckpointManager(ckpt, ckp_log_root, max_to_keep=3)
+
+    if not os.path.exists(tb_log_root):
+        print("build tensorboard log folder")
+        os.makedirs(tb_log_root)
+    train_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'train')) # tensorboard --logdir /tmp/summaries
+    test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
 
     initial_learning_rate = 0.1
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
@@ -340,4 +360,5 @@ if __name__ == '__main__':
         decay_rate=0.96,
         staircase=True)
     opt = tf.keras.optimizers.Adam(lr_schedule)
-    train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, ckpt=ckpt, manager=manager)
+    train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, train_summary_writer=train_summary_writer,
+                         test_summary_writer=test_summary_writer, ckpt=ckpt, manager=manager)

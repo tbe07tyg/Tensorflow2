@@ -178,7 +178,7 @@ def train_and_checkpoint(model, manager, EPOCHS,log_freq, ckpt_freq):
             # print("train_batch_y.shape:", train_batch_y.shape)
             # print(type(train_batch_x))
             # print(type(train_batch_y))
-            # write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
+            write_tb_logs_image(train_summary_writer, ["input_features"], [train_batch_x], optimizer.iterations, batch_size)
 
 
             train_step(train_batch_x, train_batch_y, model, optimizer)
