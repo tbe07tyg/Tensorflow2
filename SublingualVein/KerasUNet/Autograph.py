@@ -353,12 +353,12 @@ if __name__ == '__main__':
     train_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'train')) # tensorboard --logdir /tmp/summaries
     test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
 
-    initial_learning_rate = 0.00015
-    # lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    #     initial_learning_rate,
-    #     decay_steps=100000,
-    #     decay_rate=0.96,
-    #     staircase=True)
+    initial_learning_rate = 0.001
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate,
+        decay_steps=100000,
+        decay_rate=0.96,
+        staircase=True)
     opt = tf.keras.optimizers.Adam(initial_learning_rate)
     train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, train_summary_writer=train_summary_writer,
                          test_summary_writer=test_summary_writer, ckpt=ckpt, manager=manager)
