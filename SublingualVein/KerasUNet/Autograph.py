@@ -213,16 +213,23 @@ def iou_coef(y_true, y_pred, smooth=1):
   iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
   return iou
 
+# @tf.function()
+# def loss(y_true, y_pred):
+#     # mask = tf.equal(y_true, 255)
+#     # mask = tf.logical_not(mask)
+#     # y_true = tf.boolean_mask(y_true, mask)
+#     # y_pred = tf.boolean_mask(y_pred, mask)
+#     return tf.losses.binary_crossentropy(y_true, y_pred)
 
 @tf.function
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
-        loss = tf.keras.losses.binary_crossentropy(labels, predictions)
+        train_loss = tf.keras.losses.mean_absolute_error(labels, predictions)
         dice = dice_coef(labels, predictions)
-    gradients = tape.gradient(loss, model.trainable_variables)
+    gradients = tape.gradient(train_loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    train_avg_loss(loss)
+    train_avg_loss(train_loss)
     train_avg_metric(dice)
 
 def train_and_checkpoint(train_dataset, model, EPOCHS, opt, ckpt=None, ckp_freq=0, manager=None):
@@ -326,7 +333,11 @@ if __name__ == '__main__':
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), net=model)
     manager = tf.train.CheckpointManager(ckpt, ckp_log_root, max_to_keep=3)
 
-    # lr_epoch = tf.Variable(1)
-    lr_schedule = tf.keras.optimizers.schedules.LearningRateSchedule(learning_rate_fn)
+    initial_learning_rate = 0.1
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate,
+        decay_steps=100000,
+        decay_rate=0.96,
+        staircase=True)
     opt = tf.keras.optimizers.Adam(lr_schedule)
     train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, ckpt=ckpt, manager=manager)
