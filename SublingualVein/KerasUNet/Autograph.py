@@ -364,10 +364,10 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
                               test_avg_metric.result()))
         print("*"*130)
         # write train logs # with the same name for train and test write will write multiple curves into one plot
-        write_tb_logs_scaler(train_summary_writer, ["epoch_avg_train_loss", "epoch_avg_Train_Dice"],
+        write_tb_logs_scaler(train_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],  # validation and train name need to be the same otherwise wont plot in one figure
                              [train_avg_loss, test_avg_metric], epoch)
 
-        write_tb_logs_scaler(test_summary_writer, ["epoch_avg_Val_loss", "epoch_avg_Val_Dice"],
+        write_tb_logs_scaler(test_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],
                              [test_avg_loss, test_avg_metric], epoch)
         if epoch == 1:
 
