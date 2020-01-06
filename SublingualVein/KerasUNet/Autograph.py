@@ -365,7 +365,7 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
         print("*"*130)
         # write train logs # with the same name for train and test write will write multiple curves into one plot
         write_tb_logs_scaler(train_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],  # validation and train name need to be the same otherwise wont plot in one figure
-                             [train_avg_loss, test_avg_metric], epoch)
+                             [train_avg_loss, train_avg_metric], epoch)
 
         write_tb_logs_scaler(test_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],
                              [test_avg_loss, test_avg_metric], epoch)
@@ -400,7 +400,7 @@ if __name__ == '__main__':
     test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
     graph_writer =  tf.summary.create_file_writer(os.path.join(tb_log_root, 'graph'))
 
-    initial_learning_rate = 0.001
+    initial_learning_rate = 0.015
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate,
         decay_steps=100000,
