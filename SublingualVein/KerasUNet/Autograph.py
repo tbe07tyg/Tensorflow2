@@ -144,10 +144,10 @@ def train_preprocess_inputs(image_path, mask_path):
         mask = load_image(mask_path, mask=True)
         mask = tf.cast(mask > 0, dtype=tf.float32)
         print(image)
-        # image, mask = random_scale(image, mask) # random resize
+        image, mask = random_scale(image, mask) # random resize
         image = std_norm(image)  # norm before padding and crop_pad
-        # image, mask = pad_inputs(image, mask)  # and pad to raw size
-        # image, mask = random_crop(image, mask)  #
+        image, mask = pad_inputs(image, mask)  # and pad to raw size
+        image, mask = random_crop(image, mask)  #
         image, mask = random_flip(image, mask)
         print("prepro image shape:", image.shape)
         print("prepro mask shape:", mask.shape)
@@ -236,14 +236,21 @@ def iou_coef(y_true, y_pred, smooth=1):
   return iou
 
 @tf.function()
-def my_loss(y_true, y_pred):
+def my_loss(y_true, y_pred, LOSS_MODE):
     # mask = tf.equal(y_true, 255)
     # mask = tf.logical_not(mask)
     # print(y_pred)
     # print(y_true)
     # print(tf.losses.binary_crossentropy(y_true, y_pred).shape)
     # print(tf.abs(y_true - y_pred).shape)
-    total_loss = tf.expand_dims(tf.losses.binary_crossentropy(y_true, y_pred), -1) + tf.abs(y_true - y_pred) # tf.losses.binary_crossentropy(y_true, y_pred) result shape (3, 1024, 1280)
+    if LOSS_MODE == "L1+BCE":
+        total_loss = tf.expand_dims(tf.losses.binary_crossentropy(y_true, y_pred), -1) + tf.abs(y_true - y_pred) # tf.losses.binary_crossentropy(y_true, y_pred) result shape (3, 1024, 1280)
+    elif LOSS_MODE == "BCE":
+        total_loss = tf.expand_dims(tf.losses.binary_crossentropy(y_true, y_pred), -1)
+    elif LOSS_MODE == "L1":
+        total_loss = tf.abs(y_true - y_pred)
+    else:
+        total_loss = tf.losses.Huber(y_true, y_pred)
     # y_pred = tf.boolean_mask(y_pred, mask)
     return total_loss
 
@@ -262,7 +269,7 @@ def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
-        train_loss = my_loss(labels, predictions)
+        train_loss = my_loss(labels, predictions,LOSS_MODE="L1+BCE")
         dice = dice_coef(labels, predictions)
     gradients = tape.gradient(train_loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -275,7 +282,7 @@ def test_step(input_feature, labels):
     predictions = model(input_feature)
     print("prediction shape:", predictions.shape)
 
-    t_loss = my_loss(labels, predictions)
+    t_loss = my_loss(labels, predictions,LOSS_MODE="L1+BCE")
     t_dice = dice_coef(labels, predictions)
     test_avg_loss(t_loss)
     test_avg_metric(t_dice)
