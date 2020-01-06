@@ -400,7 +400,7 @@ if __name__ == '__main__':
     test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
     graph_writer =  tf.summary.create_file_writer(os.path.join(tb_log_root, 'graph'))
 
-    initial_learning_rate = 0.015
+    initial_learning_rate = 0.001
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate,
         decay_steps=100000,
