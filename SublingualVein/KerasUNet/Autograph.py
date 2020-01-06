@@ -38,7 +38,8 @@ print(f'Found {len(val_images)} validation images')
 print(f'Found {len(val_masks)} validation masks')
 
 total_num_batches_per_epoch = math.ceil(len(train_images) / batch_size)
-
+print("batch size:", batch_size)
+print("total_num_batches per epoch:", total_num_batches_per_epoch)
 for i in range(len(train_masks)):
     print(train_images)
     print("train_image:", train_images[i].split('/')[-1].split('\\')[-1].split('.')[0])
@@ -184,7 +185,7 @@ train_dataset = tf.data.Dataset.from_tensor_slices((train_images, train_masks))
 train_dataset = train_dataset.shuffle(1024)
 train_dataset = train_dataset.map(map_func=train_preprocess_inputs,
                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
-train_dataset = train_dataset.batch(batch_size=batch_size, drop_remainder=True)
+train_dataset = train_dataset.batch(batch_size=batch_size, drop_remainder=True) # drop reminder... if true batch= 6 otherwise =7
 # train_dataset = train_dataset.repeat(1000)
 train_dataset = train_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
@@ -265,6 +266,16 @@ def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
             # value_list[i].reset_states()  # Clear accumulated values with .reset_states()
         writer.flush()
 
+def write_tb_logs_scaler(writer, name_list, value_list, step):
+    with writer.as_default():
+        # optimizer.iterations is actually the entire counter from step 1 to step total batch
+        for i in range(len(name_list)):
+            tf.summary.scalar(name_list[i], value_list[i].result(), step=step)
+            # print(value_list[i].result())
+            value_list[i].reset_states()  # Clear accumulated values with .reset_states()
+            # print(value_list[i].result())
+        writer.flush()
+
 @tf.function
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
@@ -329,7 +340,7 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
             print(batch_template.format(int(ckpt.step),
                                         epoch,
                                         batch_count,
-                                        7,
+                                        total_num_batches_per_epoch,
                                         train_avg_loss.result(),
                                         train_avg_metric.result()))
 
@@ -344,6 +355,20 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
             write_tb_logs_image(test_summary_writer, ["val_input_target"], [y_val], opt.iterations, batch_size)
             write_tb_logs_image(test_summary_writer, ["predictions"], [predictions], opt.iterations, batch_size)
 
+        epoch_template = 'Val ------> Epoch {}, Loss: {}, Dice: {}, Val Loss: {}, Val Dice: {}'
+        print("*"*130)
+        print(epoch_template.format(epoch,
+                              train_avg_loss.result(),
+                              train_avg_metric.result(),
+                              test_avg_loss.result(),
+                              test_avg_metric.result()))
+        print("*"*130)
+        # write train logs # with the same name for train and test write will write multiple curves into one plot
+        write_tb_logs_scaler(train_summary_writer, ["epoch_avg_train_loss", "epoch_avg_Train_Dice"],
+                             [train_avg_loss, test_avg_metric], epoch)
+
+        write_tb_logs_scaler(test_summary_writer, ["epoch_avg_Val_loss", "epoch_avg_Val_Dice"],
+                             [test_avg_loss, test_avg_metric], epoch)
         if epoch == 1:
 
             # at epoch end write graph of the all the computation model
@@ -383,4 +408,4 @@ if __name__ == '__main__':
         staircase=True)
     opt = tf.keras.optimizers.Adam(initial_learning_rate)
     train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, train_summary_writer=train_summary_writer,
-                         test_summary_writer=test_summary_writer, graph_writer=graph_writer,ckpt=ckpt, manager=manager)
+                         test_summary_writer=test_summary_writer, graph_writer=graph_writer, ckpt=ckpt, manager=manager)
