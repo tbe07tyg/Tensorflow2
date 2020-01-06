@@ -145,10 +145,10 @@ def train_preprocess_inputs(image_path, mask_path):
         mask = load_image(mask_path, mask=True)
         mask = tf.cast(mask > 0, dtype=tf.float32)
         print(image)
-        image, mask = random_scale(image, mask) # random resize
+        # image, mask = random_scale(image, mask) # random resize
         image = std_norm(image)  # norm before padding and crop_pad
-        image, mask = pad_inputs(image, mask)  # and pad to raw size
-        image, mask = random_crop(image, mask)  #
+        # image, mask = pad_inputs(image, mask)  # and pad to raw size
+        # image, mask = random_crop(image, mask)  #
         image, mask = random_flip(image, mask)
         print("prepro image shape:", image.shape)
         print("prepro mask shape:", mask.shape)
