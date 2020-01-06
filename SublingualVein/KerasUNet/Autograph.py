@@ -235,13 +235,17 @@ def iou_coef(y_true, y_pred, smooth=1):
   iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
   return iou
 
-# @tf.function()
-# def loss(y_true, y_pred):
-#     # mask = tf.equal(y_true, 255)
-#     # mask = tf.logical_not(mask)
-#     # y_true = tf.boolean_mask(y_true, mask)
-#     # y_pred = tf.boolean_mask(y_pred, mask)
-#     return tf.losses.binary_crossentropy(y_true, y_pred)
+@tf.function()
+def my_loss(y_true, y_pred):
+    # mask = tf.equal(y_true, 255)
+    # mask = tf.logical_not(mask)
+    # print(y_pred)
+    # print(y_true)
+    # print(tf.losses.binary_crossentropy(y_true, y_pred).shape)
+    # print(tf.abs(y_true - y_pred).shape)
+    total_loss = tf.expand_dims(tf.losses.binary_crossentropy(y_true, y_pred), -1) + tf.abs(y_true - y_pred) # tf.losses.binary_crossentropy(y_true, y_pred) result shape (3, 1024, 1280)
+    # y_pred = tf.boolean_mask(y_pred, mask)
+    return total_loss
 
 def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
     with writer.as_default():
@@ -258,7 +262,7 @@ def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
-        train_loss = tf.keras.losses.binary_crossentropy(labels, predictions)
+        train_loss = my_loss(labels, predictions)
         dice = dice_coef(labels, predictions)
     gradients = tape.gradient(train_loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -271,7 +275,7 @@ def test_step(input_feature, labels):
     predictions = model(input_feature)
     print("prediction shape:", predictions.shape)
 
-    t_loss =  tf.keras.losses.binary_crossentropy(labels, predictions)
+    t_loss = my_loss(labels, predictions)
     t_dice = dice_coef(labels, predictions)
     test_avg_loss(t_loss)
     test_avg_metric(t_dice)
@@ -281,7 +285,8 @@ def test_step(input_feature, labels):
 
 
 def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
-                         train_summary_writer, test_summary_writer, ckpt=None, ckp_freq=0, manager=None):
+                         train_summary_writer, test_summary_writer, graph_writer=None,
+                         ckpt=None, ckp_freq=0, manager=None):
     temp_mae = 100 # mae the less the better
 
     ckpt.restore(manager.latest_checkpoint)
@@ -293,6 +298,8 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
 
 
     for epoch in range(EPOCHS):
+        if epoch == 0:
+            tf.summary.trace_on(graph=True, profiler=False)
         # lr_epoch= epoch
         epoch+=1
         test_avg_metric_list = []
@@ -323,14 +330,21 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
 
         # val dataset per epoch end
         for x_val, y_val in val_dataset:
-            print("x_val.shape:", x_val.shape)
-            print("y_val.shape:", y_val.shape)
+            # print("x_val.shape:", x_val.shape)
+            # print("y_val.shape:", y_val.shape)
             predictions = test_step(x_val, y_val)
             write_tb_logs_image(test_summary_writer, ["val_input_image"], [x_val], opt.iterations, batch_size)
             write_tb_logs_image(test_summary_writer, ["val_input_target"], [y_val], opt.iterations, batch_size)
             write_tb_logs_image(test_summary_writer, ["predictions"], [predictions], opt.iterations, batch_size)
 
+        if epoch == 1:
 
+            # at epoch end write graph of the all the computation model
+            with graph_writer.as_default():
+                tf.summary.trace_export(
+                    name="my_func_trace",
+                    step=0,
+                    profiler_outdir=os.path.join('logs', 'graph'))
 
 
 
@@ -352,6 +366,7 @@ if __name__ == '__main__':
         os.makedirs(tb_log_root)
     train_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'train')) # tensorboard --logdir /tmp/summaries
     test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
+    graph_writer =  tf.summary.create_file_writer(os.path.join(tb_log_root, 'graph'))
 
     initial_learning_rate = 0.001
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
@@ -361,4 +376,4 @@ if __name__ == '__main__':
         staircase=True)
     opt = tf.keras.optimizers.Adam(initial_learning_rate)
     train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, train_summary_writer=train_summary_writer,
-                         test_summary_writer=test_summary_writer, ckpt=ckpt, manager=manager)
+                         test_summary_writer=test_summary_writer, graph_writer=graph_writer,ckpt=ckpt, manager=manager)
