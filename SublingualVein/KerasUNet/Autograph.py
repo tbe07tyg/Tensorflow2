@@ -281,7 +281,7 @@ def write_tb_logs_scaler(writer, name_list, value_list, step):
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
-        train_loss = my_loss(labels, predictions,LOSS_MODE="L1+BCE")
+        train_loss = my_loss(labels, predictions,LOSS_MODE="BCE")
         dice = dice_coef(labels, predictions)
     gradients = tape.gradient(train_loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -294,7 +294,7 @@ def test_step(input_feature, labels):
     predictions = model(input_feature)
     print("prediction shape:", predictions.shape)
 
-    t_loss = my_loss(labels, predictions,LOSS_MODE="L1+BCE")
+    t_loss = my_loss(labels, predictions,LOSS_MODE="BCE")
     t_dice = dice_coef(labels, predictions)
     test_avg_loss(t_loss)
     test_avg_metric(t_dice)
@@ -391,7 +391,7 @@ if __name__ == '__main__':
     # with strategy.scope():
     model = UNet(inChannels=1)
     # plot model graph
-    # tf.keras.utils.plot_model(model, show_shapes=True, dpi=200)
+    tf.keras.utils.plot_model(model, show_shapes=True, dpi=200, expand_nested=True)
     tb_log_root = "logs"
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), net=model)
     manager = tf.train.CheckpointManager(ckpt, ckp_log_root, max_to_keep=3)
