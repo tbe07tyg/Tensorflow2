@@ -303,7 +303,7 @@ def test_step(input_feature, labels):
 
 
 
-def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
+def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
                          train_summary_writer, test_summary_writer, graph_writer=None,
                          ckpt=None, ckp_freq=0, manager=None):
     temp_mae = 100 # mae the less the better
@@ -407,11 +407,11 @@ if __name__ == '__main__':
     test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
     graph_writer =  tf.summary.create_file_writer(os.path.join(tb_log_root, 'graph'))
 
-    initial_learning_rate = 0.001
+    initial_learning_rate = 5e-5
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate,
-        decay_steps=100,  # learning rate decay after every 100 steps
-        decay_rate=0.5, #
+        decay_steps=400,  # learning rate decay after every 100 steps
+        decay_rate=0.96, #
         staircase=True)
     opt = tf.keras.optimizers.Adam(lr_schedule)
     train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, train_summary_writer=train_summary_writer,
