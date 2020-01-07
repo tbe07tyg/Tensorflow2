@@ -271,9 +271,9 @@ def write_tb_logs_scaler(writer, name_list, value_list, step):
     with writer.as_default():
         # optimizer.iterations is actually the entire counter from step 1 to step total batch
         for i in range(len(name_list)):
-            tf.summary.scalar(name_list[i], value_list[i].result(), step=step)
+            tf.summary.scalar(name_list[i], value_list[i], step=step)
             # print(value_list[i].result())
-            value_list[i].reset_states()  # Clear accumulated values with .reset_states()
+            # value_list[i].reset_states()  # Clear accumulated values with .reset_states()
             # print(value_list[i].result())
         writer.flush()
 
@@ -346,7 +346,7 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
                                         train_avg_metric.result()))
 
             ckpt.step.assign_add(1)
-
+            print("lr:", opt._decayed_lr(tf.float32).numpy())
         # val dataset per epoch end
         for x_val, y_val in val_dataset:
             # print("x_val.shape:", x_val.shape)
@@ -366,10 +366,14 @@ def train_and_checkpoint(train_dataset, model, EPOCHS, opt,
         print("*"*130)
         # write train logs # with the same name for train and test write will write multiple curves into one plot
         write_tb_logs_scaler(train_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],  # validation and train name need to be the same otherwise wont plot in one figure
-                             [train_avg_loss, train_avg_metric], epoch)
+                             [train_avg_loss.result(), train_avg_metric.result()], epoch)
 
         write_tb_logs_scaler(test_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],
-                             [test_avg_loss, test_avg_metric], epoch)
+                             [test_avg_loss.result(), test_avg_metric.result()], epoch)
+
+        write_tb_logs_scaler(train_summary_writer, ["lr"],
+                             [opt._decayed_lr(tf.float32)], epoch)
+
         if epoch == 1:
 
             # at epoch end write graph of the all the computation model
@@ -406,9 +410,9 @@ if __name__ == '__main__':
     initial_learning_rate = 0.001
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate,
-        decay_steps=100000,
-        decay_rate=0.96,
+        decay_steps=100,  # learning rate decay after every 100 steps
+        decay_rate=0.5, #
         staircase=True)
-    opt = tf.keras.optimizers.Adam(initial_learning_rate)
+    opt = tf.keras.optimizers.Adam(lr_schedule)
     train_and_checkpoint(train_dataset, model, EPOCHS, opt=opt, train_summary_writer=train_summary_writer,
                          test_summary_writer=test_summary_writer, graph_writer=graph_writer, ckpt=ckpt, manager=manager)
