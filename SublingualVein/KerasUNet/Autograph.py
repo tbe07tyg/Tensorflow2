@@ -15,7 +15,7 @@ os.environ["PATH"] += os.pathsep + 'I:/DeepLearning/TensorflowV2/graphviz-2.38/r
 
 # H, W = 784, 784
 batch_size = 2
-EPOCHS = 1000
+EPOCHS = 2000
 log_freq = 1
 ckp_log_root = "/logs"
 
@@ -347,6 +347,8 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
 
             ckpt.step.assign_add(1)
             print("lr:", opt._decayed_lr(tf.float32).numpy())
+            write_tb_logs_scaler(train_summary_writer, ["lr"],
+                                 [opt._decayed_lr(tf.float32)], int(ckpt.step))
         # val dataset per epoch end
         for x_val, y_val in val_dataset:
             # print("x_val.shape:", x_val.shape)
@@ -371,8 +373,7 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
         write_tb_logs_scaler(test_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],
                              [test_avg_loss.result(), test_avg_metric.result()], epoch)
 
-        write_tb_logs_scaler(train_summary_writer, ["lr"],
-                             [opt._decayed_lr(tf.float32)], epoch)
+
 
         if epoch == 1:
 
