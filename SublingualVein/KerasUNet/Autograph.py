@@ -11,9 +11,10 @@ print('TensorFlow', tf.__version__)
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+os.environ["PATH"] += os.pathsep + 'I:/DeepLearning/TensorflowV2/graphviz-2.38/release/bin/'
 
 # H, W = 784, 784
-batch_size = 3
+batch_size = 2
 EPOCHS = 1000
 log_freq = 1
 ckp_log_root = "/logs"
@@ -211,16 +212,16 @@ test_avg_metric = tf.keras.metrics.Mean(name='test_avg_metric')
 #     print("image shape:", x.shape)
 #     print("mask shape:", y.shape)
 
-@tf.function()
-def learning_rate_fn(epoch):
-    if epoch < 5:
-        return 1e-5
-    elif epoch < 10:
-        return 2e-5
-    elif epoch <= 45:
-        return 1e-5
-    elif epoch > 45:
-        return 5e-6
+# @tf.function()
+# def learning_rate_fn(epoch):
+#     if epoch < 5:
+#         return 1e-5
+#     elif epoch < 10:
+#         return 2e-5
+#     elif epoch <= 45:
+#         return 1e-5
+#     elif epoch > 45:
+#         return 5e-6
 
 @tf.function
 def dice_coef(y_true, y_pred, smooth=1):
@@ -389,6 +390,8 @@ if __name__ == '__main__':
     strategy = tf.distribute.MirroredStrategy()
     # with strategy.scope():
     model = UNet(inChannels=1)
+    # plot model graph
+    # tf.keras.utils.plot_model(model, show_shapes=True, dpi=200)
     tb_log_root = "logs"
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), net=model)
     manager = tf.train.CheckpointManager(ckpt, ckp_log_root, max_to_keep=3)

@@ -1,24 +1,31 @@
 from tensorflow import keras
 from SublingualVein.KerasUNet.hyperparameters import image_size
+import tensorflow as tf
 
-
+def con_bn_act(x, filters, kernel_size=(3, 3), padding="same", strides=1):
+    initializer = tf.random_normal_initializer(0., 0.02)
+    c = keras.layers.Conv2D(filters, kernel_size, strides=strides, padding=padding,
+                             kernel_initializer=initializer, use_bias=False)(x)
+    c = tf.keras.layers.BatchNormalization()(c)
+    c = tf.keras.layers.ReLU()(c)
+    return c
 
 def down_block(x, filters, kernel_size=(3, 3), padding="same", strides=1):
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    c = con_bn_act(x, filters, kernel_size, padding=padding, strides=strides)
+    c = con_bn_act(c, filters, kernel_size, padding=padding, strides=strides)
     p = keras.layers.MaxPool2D((2, 2), (2, 2))(c)
     return c, p
 
 def up_block(x, skip, filters, kernel_size=(3, 3), padding="same", strides=1):
     us = keras.layers.UpSampling2D((2, 2))(x)
     concat = keras.layers.Concatenate()([us, skip])
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(concat)
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    c = con_bn_act(concat, filters, kernel_size, padding=padding, strides=strides)
+    c = con_bn_act(c, filters, kernel_size, padding=padding, strides=strides)
     return c
 
 def bottleneck(x, filters, kernel_size=(3, 3), padding="same", strides=1):
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(x)
-    c = keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides, activation="relu")(c)
+    c = con_bn_act(x, filters, kernel_size, padding=padding, strides=strides)
+    c = con_bn_act(c, filters, kernel_size, padding=padding, strides=strides)
     return c
 
 
