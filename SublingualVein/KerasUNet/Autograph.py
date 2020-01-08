@@ -171,6 +171,7 @@ def test_preprocess_inputs(image_path, mask_path):
         print("load image shape:", image.shape)
         mask = load_image(mask_path, mask=True)
         mask = tf.cast(mask > 0, dtype=tf.float32)
+        image, mask = resize(image, mask)
         print(image)
         # image, mask = random_scale(image, mask) # random resize
         image = std_norm(image)  # norm before padding and crop_pad
