@@ -2,6 +2,7 @@ from tensorflow import keras
 from SublingualVein.KerasUNet.hyperparameters import image_size
 import tensorflow as tf
 from tensorflow.keras.layers import *
+from SublingualVein.KerasUNet.my_Loss_Metrics import my_loss_BCE, dice_coef
 
 def con_bn_act(x, filters, kernel_size=(3, 3), padding="same", strides=1):
     initializer = tf.random_normal_initializer(0., 0.02)
@@ -52,6 +53,7 @@ def UNet(inChannels=3):
     return model
 
 def U_NetV2(inChannels):
+
     inputs = keras.layers.Input((image_size, image_size, inChannels))
     conv1 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(inputs)
     conv1 = Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv1)
@@ -98,4 +100,5 @@ def U_NetV2(inChannels):
     conv10 = Conv2D(1, 1, activation='sigmoid')(conv9)
 
     model = keras.models.Model(inputs, conv10)
+
     return model

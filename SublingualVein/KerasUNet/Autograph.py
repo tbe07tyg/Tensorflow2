@@ -1,11 +1,14 @@
 import tensorflow as tf
 from glob import glob
-from SublingualVein.LearnFromPersonSegStructure.ModelDESIGN import UNet,U_NetV2
+from SublingualVein.LearnFromPersonSegStructure.ModelDESIGN import U_NetV2
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 import os
 from SublingualVein.KerasUNet.hyperparameters import image_size
 import math
+from SublingualVein.KerasUNet.my_Loss_Metrics import my_loss_BCE, dice_coef
+from SublingualVein.KerasUNet.preprocessing import resize, std_norm, random_flip
+
 import numpy as np
 print('TensorFlow', tf.__version__)
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit'
@@ -17,7 +20,7 @@ os.environ["PATH"] += os.pathsep + 'I:/DeepLearning/TensorflowV2/graphviz-2.38/r
 batch_size = 2
 EPOCHS = 2000
 log_freq = 1
-ckp_log_root = "/logs"
+ckp_log_root = "ckpts"
 
 
 # train_images = sorted(glob('resized_images/*'))
@@ -53,72 +56,7 @@ for i in range(len(val_masks)):
            == val_masks[i].split('/')[-1].split('\\')[-1].split('.')[0]
 
 
-def random_scale(image, mask, min_scale=0.65, max_scale=2.5):
-    random_scale = tf.random.uniform(shape=[1],
-                                     minval=min_scale,
-                                     maxval=max_scale)
-    dims = tf.cast(tf.shape(image), dtype=tf.float32)
-    new_dims = tf.cast(random_scale * dims[:2], dtype=tf.int32)
-    scaled_image = tf.image.resize(image, size=new_dims, method='bilinear')
-    scaled_mask = tf.image.resize(mask, size=new_dims, method='nearest')
-    return scaled_image, scaled_mask
 
-
-def pad_inputs(image,
-               mask,
-               crop_height=image_size,
-               crop_width=image_size,
-               ignore_value=255,
-               pad_value=0):
-    dims = tf.cast(tf.shape(image), dtype=tf.float32)
-    h_pad = tf.maximum(1 + crop_height - dims[0], 0)
-    w_pad = tf.maximum(1 + crop_width - dims[1], 0)
-    padded_image = tf.pad(image, paddings=[[0, h_pad], [0, w_pad], [
-                          0, 0]], constant_values=pad_value)
-    padded_mask = tf.pad(mask, paddings=[[0, h_pad], [0, w_pad], [
-                         0, 0]], mode='CONSTANT', constant_values=ignore_value)
-    return padded_image, padded_mask
-
-
-def random_crop(image, mask, crop_height=image_size, crop_width=image_size):
-    image_dims = tf.shape(image)
-    offset_h = tf.random.uniform(
-        shape=(1,), maxval=image_dims[0] - crop_height, dtype=tf.int32)[0]
-    offset_w = tf.random.uniform(
-        shape=(1,), maxval=image_dims[1] - crop_height, dtype=tf.int32)[0]
-
-    image = tf.image.crop_to_bounding_box(image,
-                                          offset_height=offset_h,
-                                          offset_width=offset_w,
-                                          target_height=crop_height,
-                                          target_width=crop_height)
-    mask = tf.image.crop_to_bounding_box(mask,
-                                         offset_height=offset_h,
-                                         offset_width=offset_w,
-                                         target_height=crop_height,
-                                         target_width=crop_height)
-    return image, mask
-
-
-def random_flip(image, mask):
-    flip = tf.random.uniform(
-        shape=[1, ], minval=0, maxval=2, dtype=tf.int32)[0]
-    image = tf.case([
-        (tf.greater(flip, 0), lambda: tf.image.flip_left_right(image))
-    ], default=lambda: image)
-    mask = tf.case([
-        (tf.greater(flip, 0), lambda: tf.image.flip_left_right(mask))
-    ], default=lambda: mask)
-    return image, mask
-
-def std_norm(image):
-    image = tf.image.per_image_standardization(image)
-    return image
-
-def resize(image, mask):
-    resized_image = tf.image.resize(image, size=[image_size, image_size], method='bilinear')
-    resized_mask = tf.image.resize(mask, size= [image_size, image_size], method='nearest')
-    return resized_image, resized_mask
 
 def load_image(image_path, mask=False):
     img = tf.io.read_file(image_path)
@@ -211,55 +149,7 @@ train_avg_metric = tf.keras.metrics.Mean(name='train_avg_metric')
 test_avg_loss = tf.keras.metrics.Mean(name='test_avg_metric')
 test_avg_metric = tf.keras.metrics.Mean(name='test_avg_metric')
 ############################### above is global zone $$$$$$$$$$$$$$$$$$$$$$$$$$$
-# for x, y in train_dataset.take(1):
-#     print("image range: [%s, %s]"%(np.min(x), np.max(x)))
-#     print("mask range: [%s, %s]" % (np.min(y), np.max(y)))
-#     print("image shape:", x.shape)
-#     print("mask shape:", y.shape)
 
-# @tf.function()
-# def learning_rate_fn(epoch):
-#     if epoch < 5:
-#         return 1e-5
-#     elif epoch < 10:
-#         return 2e-5
-#     elif epoch <= 45:
-#         return 1e-5
-#     elif epoch > 45:
-#         return 5e-6
-
-@tf.function
-def dice_coef(y_true, y_pred, smooth=1):
-  intersection = K.sum(y_true * y_pred, axis=[1,2,3])
-  union = K.sum(y_true, axis=[1,2,3]) + K.sum(y_pred, axis=[1,2,3])
-  dice = K.mean((2. * intersection + smooth)/(union + smooth), axis=0)
-  return dice
-
-@tf.function
-def iou_coef(y_true, y_pred, smooth=1):
-  intersection = K.sum(K.abs(y_true * y_pred), axis=[1,2,3])
-  union = K.sum(y_true,[1,2,3])+K.sum(y_pred,[1,2,3])-intersection
-  iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
-  return iou
-
-@tf.function()
-def my_loss(y_true, y_pred, LOSS_MODE):
-    # mask = tf.equal(y_true, 255)
-    # mask = tf.logical_not(mask)
-    # print(y_pred)
-    # print(y_true)
-    # print(tf.losses.binary_crossentropy(y_true, y_pred).shape)
-    # print(tf.abs(y_true - y_pred).shape)
-    if LOSS_MODE == "L1+BCE":
-        total_loss = tf.expand_dims(tf.losses.binary_crossentropy(y_true, y_pred), -1) + tf.abs(y_true - y_pred) # tf.losses.binary_crossentropy(y_true, y_pred) result shape (3, 1024, 1280)
-    elif LOSS_MODE == "BCE":
-        total_loss = tf.expand_dims(tf.losses.binary_crossentropy(y_true, y_pred), -1)
-    elif LOSS_MODE == "L1":
-        total_loss = tf.abs(y_true - y_pred)
-    else:
-        total_loss = tf.losses.Huber(y_true, y_pred)
-    # y_pred = tf.boolean_mask(y_pred, mask)
-    return total_loss
 
 def write_tb_logs_image(writer, name_list, value_list, step,max_outs):
     with writer.as_default():
@@ -286,7 +176,7 @@ def write_tb_logs_scaler(writer, name_list, value_list, step):
 def train_step(input_feature, labels, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(input_feature)
-        train_loss = my_loss(labels, predictions,LOSS_MODE="BCE")
+        train_loss = my_loss_BCE(labels, predictions)
         dice = dice_coef(labels, predictions)
     gradients = tape.gradient(train_loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -299,7 +189,7 @@ def test_step(input_feature, labels):
     predictions = model(input_feature)
     print("prediction shape:", predictions.shape)
 
-    t_loss = my_loss(labels, predictions,LOSS_MODE="BCE")
+    t_loss = my_loss_BCE(labels, predictions)
     t_dice = dice_coef(labels, predictions)
     test_avg_loss(t_loss)
     test_avg_metric(t_dice)
@@ -311,7 +201,7 @@ def test_step(input_feature, labels):
 def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
                          train_summary_writer, test_summary_writer, graph_writer=None,
                          ckpt=None, ckp_freq=0, manager=None):
-    temp_mae = 100 # mae the less the better
+    temp_dice = 0 # mae the less the better
 
     ckpt.restore(manager.latest_checkpoint)
     #
@@ -330,6 +220,7 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
         batch_count = 0
         # each train epoch
         for x, y in train_dataset:
+            print("ckpt.step:", int(ckpt.step))
             print("x.shape:", x.shape)
             print("y.shape:", y.shape)
             write_tb_logs_image(train_summary_writer, ["input_image"], [x], opt.iterations, batch_size)
@@ -350,10 +241,12 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
                                         train_avg_loss.result(),
                                         train_avg_metric.result()))
 
-            ckpt.step.assign_add(1)
+
             print("lr:", opt._decayed_lr(tf.float32).numpy())
             write_tb_logs_scaler(train_summary_writer, ["lr"],
                                  [opt._decayed_lr(tf.float32)], int(ckpt.step))
+            ckpt.step.assign_add(1)
+
         # val dataset per epoch end
         for x_val, y_val in val_dataset:
             # print("x_val.shape:", x_val.shape)
@@ -378,7 +271,17 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
         write_tb_logs_scaler(test_summary_writer, ["epoch_avg_loss", "epoch_avg_Dice"],
                              [test_avg_loss.result(), test_avg_metric.result()], epoch)
 
-
+        if test_avg_metric.result() > temp_dice:
+            # 保存模型
+            # print("saving model...")
+            # model.save('my_model.h5')
+            # print("model saved")
+            save_path = manager.save()
+            print("Saved checkpoint for step {}: {}".format(int(ckpt.step), save_path))
+            temp_dice = test_avg_metric.result()
+            print("temp_avg_val_dice:", temp_dice.numpy())
+        else:
+            pass
 
         if epoch == 1:
 
@@ -399,6 +302,8 @@ if __name__ == '__main__':
 
     strategy = tf.distribute.MirroredStrategy()
     # with strategy.scope():
+
+    # use designed model
     model = U_NetV2(inChannels=1)
     # plot model graph
     tf.keras.utils.plot_model(model, show_shapes=True, dpi=200, expand_nested=True)
