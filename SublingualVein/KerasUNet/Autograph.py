@@ -1,6 +1,6 @@
 import tensorflow as tf
 from glob import glob
-from SublingualVein.LearnFromPersonSegStructure.ModelDESIGN import UNet
+from SublingualVein.LearnFromPersonSegStructure.ModelDESIGN import UNet,U_NetV2
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 import os
@@ -115,7 +115,10 @@ def std_norm(image):
     image = tf.image.per_image_standardization(image)
     return image
 
-
+def resize(image, mask):
+    resized_image = tf.image.resize(image, size=[image_size, image_size], method='bilinear')
+    resized_mask = tf.image.resize(mask, size= [image_size, image_size], method='nearest')
+    return resized_image, resized_mask
 
 def load_image(image_path, mask=False):
     img = tf.io.read_file(image_path)
@@ -146,6 +149,7 @@ def train_preprocess_inputs(image_path, mask_path):
         mask = load_image(mask_path, mask=True)
         mask = tf.cast(mask > 0, dtype=tf.float32)
         print(image)
+        image, mask  = resize(image, mask)
         # image, mask = random_scale(image, mask) # random resize
         image = std_norm(image)  # norm before padding and crop_pad
         # image, mask = pad_inputs(image, mask)  # and pad to raw size
@@ -394,7 +398,7 @@ if __name__ == '__main__':
 
     strategy = tf.distribute.MirroredStrategy()
     # with strategy.scope():
-    model = UNet(inChannels=1)
+    model = U_NetV2(inChannels=1)
     # plot model graph
     tf.keras.utils.plot_model(model, show_shapes=True, dpi=200, expand_nested=True)
     tb_log_root = "logs"
