@@ -113,7 +113,7 @@ if __name__ == '__main__':
         # print("x_val.shape:", x_val.shape)
         # print("y_val.shape:", y_val.shape)
         predictions = model.predict(x_val)
-
+        
         display([x_val[0], y_val[0], create_mask(predictions)])
 
 

@@ -306,7 +306,7 @@ if __name__ == '__main__':
     # use designed model
     model = U_NetV2(inChannels=1)
     # plot model graph
-    tf.keras.utils.plot_model(model, show_shapes=True, dpi=200, expand_nested=True)
+    # tf.keras.utils.plot_model(model, show_shapes=True, dpi=200, expand_nested=True)
     tb_log_root = "logs"
     ckpt = tf.train.Checkpoint(step=tf.Variable(1), net=model)
     manager = tf.train.CheckpointManager(ckpt, ckp_log_root, max_to_keep=3)
