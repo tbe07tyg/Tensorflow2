@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-def display(display_list):
+def display(display_list, student=True):
   plt.figure(figsize=(15, 15))
 
   title = ['Input Image', 'True Mask', 'Predicted Mask']
@@ -13,7 +13,13 @@ def display(display_list):
     #   display_list[i].reshape([display_list[i].shape[0], display_list[i].shape[1]])
     # else:
     #   display_list[i].reshape([display_list[i].shape[0], display_list[i].shape[1], 3])
-    plt.imshow(tf.keras.preprocessing.image.array_to_img(display_list[i]))
+    if student==True:
+      if i==1:
+        plt.imshow(tf.keras.preprocessing.image.array_to_img(display_list[i]))
+      else:
+        plt.imshow(tf.keras.preprocessing.image.array_to_img(display_list[i]), cmap='gray')
+    else:
+      plt.imshow(tf.keras.preprocessing.image.array_to_img(display_list[i]), cmap='gray')
     plt.axis('off')
   plt.show()
 

@@ -29,15 +29,24 @@ ckp_log_root = "ckpts"
 # val_images = sorted(glob('validation_data/images/*'))
 # val_masks = sorted(glob('validation_data/masks/*'))
 
-train_images = sorted(glob('I:/dataset/infaredSublingualVein/train/raw_image/*'))
+# train_images = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\raw\\train/*'))
+# # train_masks = sorted(glob('I:/dataset/infaredSublingualVein/train/tongue_labels/*'))
+# train_masks = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\label\\My_train_label\\mask\\binaryMask/*'))
+#
+#
+# val_images = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\raw\\val/*'))
+# # val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/tongue_labels/*'))
+# val_masks = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\label\\My_val_label\\mask\\binary/*'))
+
+# Sever
+train_images = sorted(glob('D:\\dataset\\infaredSublingualVein\\retrian3rd\\raw\\train/*'))
 # train_masks = sorted(glob('I:/dataset/infaredSublingualVein/train/tongue_labels/*'))
-train_masks = sorted(glob('I:/dataset/infaredSublingualVein/train/veins_labels/*'))
+train_masks = sorted(glob(' D:\\dataset\\infaredSublingualVein\\retrian3rd\label\\Train_binaryMask\\binaryMask/*'))
 
 
-val_images = sorted(glob('I:/dataset/infaredSublingualVein/validation/raw_image/*'))
+val_images = sorted(glob('D:\\dataset\\infaredSublingualVein\\retrian3rd\\raw\\val/*'))
 # val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/tongue_labels/*'))
-val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/veins_labels/*'))
-
+val_masks = sorted(glob('D:\\dataset\\infaredSublingualVein\\retrian3rd\label\\val_binary_mask\\binary/*'))
 
 print(f'Found {len(train_images)} training images')
 print(f'Found {len(train_masks)} training masks')
@@ -48,6 +57,8 @@ print(f'Found {len(val_masks)} validation masks')
 total_num_batches_per_epoch = math.ceil(len(train_images) / batch_size)
 print("batch size:", batch_size)
 print("total_num_batches per epoch:", total_num_batches_per_epoch)
+old_total_num_batches_per_epoch = 10
+print("old total num batches per epoch:", old_total_num_batches_per_epoch)
 for i in range(len(train_masks)):
     print(train_images)
     print("train_image:", train_images[i].split('/')[-1].split('\\')[-1].split('.')[0])
@@ -56,6 +67,10 @@ for i in range(len(train_masks)):
            == train_masks[i].split('/')[-1].split('\\')[-1].split('.')[0]
 
 for i in range(len(val_masks)):
+    print(val_images)
+    print(val_masks)
+    print("val_image:", val_images[i].split('/')[-1].split('\\')[-1].split('.')[0])
+    print("val_mask:", val_masks[i].split('/')[-1].split('\\')[-1].split('.')[0])
     assert val_images[i].split('/')[-1].split('\\')[-1].split('.')[0] \
            == val_masks[i].split('/')[-1].split('\\')[-1].split('.')[0]
 
@@ -75,9 +90,15 @@ def load_image(image_path, mask=False):
         img.set_shape([None, None, 3])
     return img
 
-def load_bmp(image_path):
+def load_bmp(image_path, channels =1):
     img = tf.io.read_file(image_path)
     img = tf.io.decode_bmp(img)
+    if channels ==3:
+        img = tf.image.rgb_to_grayscale(img)
+        print(img.shape)
+    else:
+
+        pass
     img.set_shape([None, None, 1])
     return img
 
@@ -86,9 +107,8 @@ def load_bmp(image_path):
 def train_preprocess_inputs(image_path, mask_path):
     with tf.device('/cpu:0'):
         # image = load_image(image_path) # infraed image input. there for 8 bit input
-        image = tf.cast(load_bmp(image_path), tf.float32)  # infraed image input. there for 8 bit input
-        print("load image shape:", image.shape)
-        mask = load_image(mask_path, mask=True)
+        image = tf.cast(load_bmp(image_path, channels=3), tf.float32)
+        mask = tf.cast(load_bmp(mask_path), tf.float32)
         mask = tf.cast(mask > 0, dtype=tf.float32)
         print(image)
         image, mask  = resize(image, mask)
@@ -109,9 +129,8 @@ def train_preprocess_inputs(image_path, mask_path):
 def test_preprocess_inputs(image_path, mask_path):
     with tf.device('/cpu:0'):
         # image = load_image(image_path) # infraed image input. there for 8 bit input
-        image = tf.cast(load_bmp(image_path), tf.float32)  # infraed image input. there for 8 bit input
-        print("load image shape:", image.shape)
-        mask = load_image(mask_path, mask=True)
+        image = tf.cast(load_bmp(image_path, channels=3), tf.float32)
+        mask = tf.cast(load_bmp(mask_path), tf.float32)
         mask = tf.cast(mask > 0, dtype=tf.float32)
         image, mask = resize(image, mask)
         print(image)
@@ -214,7 +233,7 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
     else:
         print("Initializing from scratch.")
 
-
+    old_ckpt_step = int(ckpt.step)
     for epoch in range(EPOCHS):
         if epoch == 0:
             tf.summary.trace_on(graph=True, profiler=False)
@@ -224,7 +243,8 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
         batch_count = 0
         # each train epoch
         for x, y in train_dataset:
-            print("ckpt.step:", int(ckpt.step))
+
+            print("old ckpt.step:",old_ckpt_step)
             print("x.shape:", x.shape)
             print("y.shape:", y.shape)
             write_tb_logs_image(train_summary_writer, ["input_image"], [x], int(ckpt.step), batch_size)
@@ -239,7 +259,7 @@ def  train_and_checkpoint(train_dataset, model, EPOCHS, opt,
             batch_template = 'Step: {} Epoch {}- Batch[{}/{}], Train Avg Loss: {}, Train Avg dice: {}'
         # #
             print(batch_template.format(int(ckpt.step),
-                                        epoch + int(ckpt.step)//total_num_batches_per_epoch,
+                                        epoch + old_ckpt_step//old_total_num_batches_per_epoch,
                                         batch_count,
                                         total_num_batches_per_epoch,
                                         train_avg_loss.result(),

@@ -316,7 +316,7 @@ if __name__ == '__main__':
         os.makedirs(tb_log_root)
     train_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'train')) # tensorboard --logdir /tmp/summaries
     test_summary_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'test'))
-    graph_writer =  tf.summary.create_file_writer(os.path.join(tb_log_root, 'graph'))
+    graph_writer = tf.summary.create_file_writer(os.path.join(tb_log_root, 'graph'))
 
     initial_learning_rate = 1e-4
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(

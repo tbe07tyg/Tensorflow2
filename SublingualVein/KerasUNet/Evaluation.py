@@ -4,6 +4,10 @@ import math, os
 from glob import glob
 from SublingualVein.KerasUNet.preprocessing import resize, std_norm, random_flip
 from SublingualVein.KerasUNet.Ultis import display
+from SublingualVein.KerasUNet.my_Loss_Metrics import my_loss_BCE, dice_coef
+import numpy as np
+
+import matplotlib.pyplot as plt
 
 print('TensorFlow', tf.__version__)
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit'
@@ -15,7 +19,7 @@ os.environ["PATH"] += os.pathsep + 'I:/DeepLearning/TensorflowV2/graphviz-2.38/r
 batch_size = 2
 EPOCHS = 2000
 log_freq = 1
-ckp_log_root = "ckpts"
+ckp_log_root = "E:\\2020Japan\\ckpts"
 
 
 # train_images = sorted(glob('resized_images/*'))
@@ -24,12 +28,18 @@ ckp_log_root = "ckpts"
 # val_images = sorted(glob('validation_data/images/*'))
 # val_masks = sorted(glob('validation_data/masks/*'))
 
-train_images = sorted(glob('I:/dataset/infaredSublingualVein/train/raw_image/*'))
-train_masks = sorted(glob('I:/dataset/infaredSublingualVein/train/tongue_labels/*'))
+# train_images = sorted(glob('I:/dataset/infaredSublingualVein/train/raw_image/*'))
+# # train_masks = sorted(glob('I:/dataset/infaredSublingualVein/train/tongue_labels/*'))
+# train_masks = sorted(glob('I:/dataset/infaredSublingualVein/train/veins_labels/*'))
 
-val_images = sorted(glob('I:/dataset/infaredSublingualVein/validation/raw_image/*'))
-val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/tongue_labels/*'))
+# my data---->
+# val_images = sorted(glob('I:/dataset/infaredSublingualVein/validation/raw_image/*'))
+# # val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/tongue_labels/*'))
+# val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/veins_labels/*'))
 
+# student data ---->
+val_images = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\raw\\train/*'))
+val_masks = sorted(glob('I:\dataset\\infaredSublingualVein\\fromStudent\label\\raw_train/*'))  # ==> raw label
 
 
 print(f'Found {len(val_images)} validation images')
@@ -57,20 +67,28 @@ def load_image(image_path, mask=False):
         img.set_shape([None, None, 3])
     return img
 
-def load_bmp(image_path):
+def load_bmp(image_path, channels =1):
     img = tf.io.read_file(image_path)
     img = tf.io.decode_bmp(img)
+    if channels ==3:
+        img = tf.image.rgb_to_grayscale(img)
+        print(img.shape)
+    else:
+        img = tf.image.rgb_to_grayscale(img)
+        pass
     img.set_shape([None, None, 1])
     return img
 
 @tf.function()
 def test_preprocess_inputs(image_path, mask_path):
     with tf.device('/cpu:0'):
-        # image = load_image(image_path) # infraed image input. there for 8 bit input
-        image = tf.cast(load_bmp(image_path), tf.float32)  # infraed image input. there for 8 bit input
-        print("load image shape:", image.shape)
-        mask = load_image(mask_path, mask=True)
-        mask = tf.cast(mask > 0, dtype=tf.float32)
+        # # image = load_image(image_path) # infraed image input. there for 8 bit input
+        # image = tf.cast(load_bmp(image_path), tf.float32)  # infraed image input. there for 8 bit input # for input 8 bit grayscle img ->
+        # print("load image shape:", image.shape)
+        # mask = load_image(mask_path, mask=True)# for input 8 bit grayscle img ->
+        image = tf.cast(load_bmp(image_path, channels=3), tf.float32)
+        mask =  tf.cast(load_bmp(mask_path), tf.float32)
+        # mask = tf.cast(mask > 0, dtype=tf.float32) #->
         image, mask = resize(image, mask)
         print(image)
         # image, mask = random_scale(image, mask) # random resize
@@ -94,13 +112,14 @@ val_dataset = val_dataset.batch(batch_size=batch_size, drop_remainder=True)
 # val_dataset = val_dataset.repeat(1000)
 val_dataset = val_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
-def create_mask(pred_mask):
-  pred_mask = tf.argmax(pred_mask, axis=-1)
-  pred_mask = pred_mask[..., tf.newaxis]
-  return pred_mask[0]
+# def create_mask(pred_mask):
+#   pred_mask = tf.argmax(pred_mask, axis=-1)
+#   pred_mask = pred_mask[..., tf.newaxis]
+#   return pred_mask[0]
 
 if __name__ == '__main__':
-
+    # dice list
+    dice_list = []
     # use designed model
     model = U_NetV2(inChannels=1)
     #
@@ -108,13 +127,24 @@ if __name__ == '__main__':
     manager = tf.train.CheckpointManager(ckpt, ckp_log_root, max_to_keep=3)
 
     ckpt.restore(manager.latest_checkpoint)
-
+    th =  0.5
     for x_val, y_val in val_dataset:
+        print(int(ckpt.step))
         # print("x_val.shape:", x_val.shape)
         # print("y_val.shape:", y_val.shape)
         predictions = model.predict(x_val)
-        
-        display([x_val[0], y_val[0], create_mask(predictions)])
+        bi_predictions =  (predictions > th) * 255
+        loss =  tf.keras.metrics.Mean()(my_loss_BCE(y_val, predictions))
+        print("test loss:", loss.numpy())
+        # display([x_val[1], y_val[1], create_mask(predictions)])
+        display([x_val[1], y_val[1], predictions[1]])
+        print(predictions.shape)
+        # print(predictions)
+        print("dice:", dice_coef(y_val, predictions).numpy())
+        dice_list.append(dice_coef(y_val, predictions).numpy())
+        print("min: {} max: {} mean: {}".format(np.min(predictions), np.max(predictions), np.mean(predictions)))
+
+    print("avg dice:", sum(dice_list)/len(dice_list))
 
 
 
