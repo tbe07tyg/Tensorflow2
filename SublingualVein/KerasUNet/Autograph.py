@@ -12,6 +12,7 @@ from SublingualVein.KerasUNet.preprocessing import resize, std_norm, random_flip
 import numpy as np
 print('TensorFlow', tf.__version__)
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_cpu_global_jit'
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 os.environ["PATH"] += os.pathsep + 'I:/DeepLearning/TensorflowV2/graphviz-2.38/release/bin/'
@@ -28,9 +29,9 @@ ckp_log_root = "ckpts"
 #
 # val_images = sorted(glob('validation_data/images/*'))
 # val_masks = sorted(glob('validation_data/masks/*'))
-
-train_images = sorted(glob('I:/dataset/infaredSublingualVein/train/raw_image/*'))
-train_masks = sorted(glob('I:/dataset/infaredSublingualVein/train/tongue_labels/*'))
+# /media/ytx/Japan_Deep_Data/dataset/infaredSublingualVein
+train_images = sorted(glob('/media/ytx/Japan_Deep_Data/dataset/infaredSublingualVein/train/raw_image/*'))
+train_masks = sorted(glob('/media/ytx/Japan_Deep_Data/dataset/infaredSublingualVein/train/tongue_labels/*'))
 
 val_images = sorted(glob('I:/dataset/infaredSublingualVein/validation/raw_image/*'))
 val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/tongue_labels/*'))

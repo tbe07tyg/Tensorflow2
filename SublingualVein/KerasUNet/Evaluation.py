@@ -19,7 +19,8 @@ os.environ["PATH"] += os.pathsep + 'I:/DeepLearning/TensorflowV2/graphviz-2.38/r
 batch_size = 2
 EPOCHS = 2000
 log_freq = 1
-ckp_log_root = "E:\\2020Japan\\ckpts"
+# ckp_log_root = "E:\\2020Japan\\ckpts" # for 2nd round
+ckp_log_root = "E:\\2020Japan\\3rdRound\\ckpts"  # for 3rd round
 
 
 # train_images = sorted(glob('resized_images/*'))
@@ -38,9 +39,11 @@ ckp_log_root = "E:\\2020Japan\\ckpts"
 # val_masks = sorted(glob('I:/dataset/infaredSublingualVein/validation/veins_labels/*'))
 
 # student data ---->
-val_images = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\raw\\train/*'))
-val_masks = sorted(glob('I:\dataset\\infaredSublingualVein\\fromStudent\label\\raw_train/*'))  # ==> raw label
+# val_images = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\raw\\train/*'))
+# val_masks = sorted(glob('I:\dataset\\infaredSublingualVein\\fromStudent\label\\raw_train/*'))  # ==> raw label
 
+val_images = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\raw\\val/*'))
+val_masks = sorted(glob('I:\\dataset\\infaredSublingualVein\\fromStudent\\label\\raw_val/*'))  # ==> raw label
 
 print(f'Found {len(val_images)} validation images')
 print(f'Found {len(val_masks)} validation masks')
