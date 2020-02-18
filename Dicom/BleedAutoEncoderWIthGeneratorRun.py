@@ -14,7 +14,7 @@ from tensorflow.keras.utils import Sequence
 from glob import glob
 import numpy as np
 import math
-get_ipython().system('pip install pydicom')
+# get_ipython().system('pip install pydicom')
 import pydicom
 import os
 from tensorflow import keras
@@ -93,7 +93,7 @@ model.compile(loss='mse', optimizer='adam',
               metrics=['mse'])
 model.summary()
 
-keras.utils.plot_model(model, show_shapes=True, dpi=200, expand_nested=True)
+# keras.utils.plot_model(model, show_shapes=True, dpi=200, expand_nested=True)
 
 
 # In[4]:
@@ -154,18 +154,18 @@ if __name__ == '__main__':
     print(f'Found {val_dcm_gen.__len__()} validation batches')
     
     # fit model with built generator
-#     H = model.fit(train_dcm_gen,
-#                             validation_data=val_dcm_gen, 
-#                             steps_per_epoch=6, 
-#                             validation_steps=4,
-#                             epochs=EPOCHS, 
-#                             callbacks=[tensorboard_callback],
-#                             verbose=1)
+    # H = model.fit(train_dcm_gen,
+    #                         validation_data=val_dcm_gen,
+    #                         steps_per_epoch=6,
+    #                         validation_steps=4,
+    #                         epochs=EPOCHS,
+    #                         callbacks=[tensorboard_callback],
+    #                         verbose=1)
     H = model.fit_generator(train_dcm_gen,
-                            validation_data=val_dcm_gen, 
-                            steps_per_epoch=train_dcm_gen.__len__(), 
+                            validation_data=val_dcm_gen,
+                            steps_per_epoch=train_dcm_gen.__len__(),
                             validation_steps=val_dcm_gen.__len__(),
-                            epochs=EPOCHS, 
+                            epochs=EPOCHS,
                             callbacks=[tensorboard_callback],
                             verbose=1)
 

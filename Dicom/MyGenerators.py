@@ -13,9 +13,9 @@ from tensorflow.keras.utils import Sequence
 from glob import glob
 import numpy as np
 import math
-get_ipython().system('pip install pydicom')
-get_ipython().system('pip install scikit-image')
-get_ipython().system('pip install sklearn')
+# get_ipython().system('pip install pydicom')
+# get_ipython().system('pip install scikit-image')
+# get_ipython().system('pip install sklearn')
 import pydicom
 
 
