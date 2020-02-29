@@ -4,7 +4,7 @@
 # ## This is script is used for program custom generators
 # 
 
-# In[10]:
+# In[1]:
 
 
 # imports 
@@ -13,9 +13,9 @@ from tensorflow.keras.utils import Sequence
 from glob import glob
 import numpy as np
 import math
-# get_ipython().system('pip install pydicom')
-# get_ipython().system('pip install scikit-image')
-# get_ipython().system('pip install sklearn')
+get_ipython().system('pip install pydicom')
+get_ipython().system('pip install scikit-image')
+get_ipython().system('pip install sklearn')
 import pydicom
 
 
@@ -24,7 +24,7 @@ from skimage.transform import resize
 from sklearn import preprocessing
 
 
-# In[37]:
+# In[2]:
 
 
 # define generators from inheritting Sequence class
@@ -95,7 +95,7 @@ class DicomGenegeratorAutoTFio(Sequence):
 #         print("mean before scaling:{}]".format(np.mean(image)))
 #         print("std before scaling:{}]".format(np.std(image)))
 #         print("shape before scaling:{}".format(image.shape))
-        image = preprocessing.scale(image.reshape((self.dims[0]*self.dims[1], -1))).reshape(self.dims)
+#         image = preprocessing.scale(image.reshape((self.dims[0]*self.dims[1], -1))).reshape(self.dims)
 #         print("mean after scaling:[{}]".format(np.mean(image)))
 #         print("std after scaling:{}]".format(np.std(image)))
 #         print("range after scaling:[{},{}]".format(np.min(image), np.max(image)))
@@ -147,7 +147,7 @@ class DicomGenegeratorAutoTFio(Sequence):
 
 # ## main test
 
-# In[38]:
+# In[3]:
 
 
 
@@ -174,22 +174,22 @@ if __name__ == '__main__':
     print(f'Found {train_dcm_gen.__len__()} training batches')
     print(f'Found {val_dcm_gen.__len__()} validation batches')
     
-#     # check the data in data generator
-#     for idx, data in enumerate(train_dcm_gen):
-#         print(idx)
-#         print("train_sample shape:", data[0].shape) # remember data generator now return (X, X)
-#         print("train_target shape:", data[1].shape)
-# #         print("min: {} max:{}".format(np.min(data), np.max(data)))
+    # check the data in data generator
+    for idx, data in enumerate(train_dcm_gen):
+        print(idx)
+        print("train_sample shape:", data[0].shape) # remember data generator now return (X, X)
+        print("train_target shape:", data[1].shape)
+#         print("min: {} max:{}".format(np.min(data), np.max(data)))
         
-#     for idx, data in enumerate(val_dcm_gen):
-#         print(idx)
-#         print("train_sample shape:", data[0].shape) # remember data generator now return (X, X)
-#         print("train_target shape:", data[1].shape)
-# #         print("min: {} max:{}".format(np.min(data), np.max(data)))
+    for idx, data in enumerate(val_dcm_gen):
+        print(idx)
+        print("train_sample shape:", data[0].shape) # remember data generator now return (X, X)
+        print("train_target shape:", data[1].shape)
+#         print("min: {} max:{}".format(np.min(data), np.max(data)))
 
     
-#     print("train dataset is ok")
-#     print("val dataset is ok")
+    print("train dataset is ok")
+    print("val dataset is ok")
 
 
 # 
